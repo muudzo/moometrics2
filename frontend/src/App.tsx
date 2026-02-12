@@ -26,9 +26,16 @@ function AppContent() {
 
 
   const renderComponent = () => {
+    // Default farm data structure for sections not yet implemented
+    const defaultFarmData = {
+      crops: [],
+      equipment: [],
+      transactions: [],
+    };
+
     switch (activeComponent) {
       case 'dashboard':
-        return <Dashboard onNavigate={setActiveComponent} />;
+        return <Dashboard farmData={defaultFarmData} onNavigate={setActiveComponent} />;
       case 'crops':
         return <CropManagement />;
       case 'livestock':
@@ -38,7 +45,7 @@ function AppContent() {
       case 'finance':
         return <FinanceTracking />;
       default:
-        return <Dashboard onNavigate={setActiveComponent} />;
+        return <Dashboard farmData={defaultFarmData} onNavigate={setActiveComponent} />;
     }
   };
 

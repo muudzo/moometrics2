@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -45,13 +44,13 @@ export function Dashboard({ farmData, onNavigate }: DashboardProps) {
   const livestockSummary = getLivestockSummary();
   const totalAnimals = getTotalAnimals();
 
-  const [showWelcome] = useState(
+  // Compute showWelcome based on current data (not useState to ensure reactivity)
+  const showWelcome =
     !farmData ||
     (farmData.crops.length === 0 &&
       totalAnimals === 0 &&
       farmData.equipment.length === 0 &&
-      farmData.transactions.length === 0)
-  );
+      farmData.transactions.length === 0);
 
   const hasData =
     farmData &&
