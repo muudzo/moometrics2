@@ -25,16 +25,12 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { WeatherCard } from '@/features/weather/components/WeatherCard';
+import { useAnimalContext } from '@/context/AnimalContext';
 
 const sampleRevenueData = [{ month: 'This Month', revenue: 0, expenses: 1200 }];
 
-const sampleLivestockData = [
-  { name: 'Cattle', value: 25, color: '#4a5c2a' },
-  { name: 'Chickens', value: 50, color: '#8ba155' },
-];
 interface FarmData {
   crops: Array<{ type: string; planted?: number; harvested?: number; yield?: number }>;
-  livestock: Array<{ type: string; count?: number }>;
   equipment: Array<{ name: string; status?: string }>;
   transactions: Array<{ amount: number; type: string; date?: string }>;
 }
@@ -45,18 +41,22 @@ interface DashboardProps {
 }
 
 export function Dashboard({ farmData, onNavigate }: DashboardProps) {
+  const { getLivestockSummary, getTotalAnimals } = useAnimalContext();
+  const livestockSummary = getLivestockSummary();
+  const totalAnimals = getTotalAnimals();
+
   const [showWelcome] = useState(
     !farmData ||
-      (farmData.crops.length === 0 &&
-        farmData.livestock.length === 0 &&
-        farmData.equipment.length === 0 &&
-        farmData.transactions.length === 0)
+    (farmData.crops.length === 0 &&
+      totalAnimals === 0 &&
+      farmData.equipment.length === 0 &&
+      farmData.transactions.length === 0)
   );
 
   const hasData =
     farmData &&
     (farmData.crops.length > 0 ||
-      farmData.livestock.length > 0 ||
+      totalAnimals > 0 ||
       farmData.equipment.length > 0 ||
       farmData.transactions.length > 0);
 
@@ -271,15 +271,12 @@ export function Dashboard({ farmData, onNavigate }: DashboardProps) {
   const cropData = farmData?.crops || [];
   const revenueData = sampleRevenueData;
 
-  // Convert livestock data to chart format
-  const livestockData =
-    farmData?.livestock && farmData.livestock.length > 0
-      ? farmData.livestock.map((group) => ({
-          name: group.type,
-          value: group.count || 0,
-          color: '#4a5c2a',
-        }))
-      : sampleLivestockData;
+  // Convert livestock data to chart format from context
+  const livestockData = livestockSummary.map((item) => ({
+    name: item.type,
+    value: item.count,
+    color: '#4a5c2a',
+  }));
 
   return (
     <div className="space-y-6 p-6">
@@ -336,14 +333,9 @@ export function Dashboard({ farmData, onNavigate }: DashboardProps) {
             <PawPrint className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-card-foreground">
-              {livestockData.reduce(
-                (sum: number, item: { value?: number }) => sum + (item.value || 0),
-                0
-              )}
-            </div>
+            <div className="text-2xl font-bold text-card-foreground">{totalAnimals}</div>
             <p className="text-xs text-muted-foreground">
-              {livestockData.length > 0 ? (
+              {totalAnimals > 0 ? (
                 <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
                   <TrendingUp className="w-3 h-3" />
                   Animals registered
@@ -476,9 +468,7 @@ export function Dashboard({ farmData, onNavigate }: DashboardProps) {
             onClick={() => onNavigate?.('livestock')}
           >
             <PawPrint className="w-4 h-4 mr-2" />
-            {livestockData.length === 0
-              ? 'Register Your First Animals'
-              : 'Record Livestock Health Check'}
+            {totalAnimals === 0 ? 'Register Your First Animals' : 'Record Livestock Health Check'}
           </Button>
           <Button
             className="w-full justify-start"

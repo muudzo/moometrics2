@@ -9,7 +9,9 @@ import { EquipmentTracking } from '@/features/equipment/components/EquipmentTrac
 import { FinanceTracking } from '@/features/finance/components/FinanceTracking';
 import { AuthProvider, useAuth } from './features/auth/context/AuthContext';
 import { LocationProvider } from './context/LocationContext';
+import { AnimalProvider } from './context/AnimalContext';
 import { Login } from './features/auth/components/Login';
+import { Toaster } from 'sonner';
 
 function AppContent() {
   const [activeComponent, setActiveComponent] = useState('dashboard');
@@ -71,7 +73,10 @@ export default function App() {
   return (
     <AuthProvider>
       <LocationProvider>
-        <AppContent />
+        <AnimalProvider>
+          <AppContent />
+          <Toaster position="top-right" richColors />
+        </AnimalProvider>
       </LocationProvider>
     </AuthProvider>
   );

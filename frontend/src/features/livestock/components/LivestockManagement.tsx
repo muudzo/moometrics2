@@ -16,16 +16,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { PawPrint, Plus, Edit, Beef, Bird, Rabbit } from 'lucide-react';
-
-interface Animal {
-  id: number;
-  tagNumber: string;
-  type: 'Cow' | 'Goat' | 'Sheep' | 'Pig' | 'Other';
-  sex: 'Male' | 'Female';
-  healthStatus: 'Healthy' | 'Sick' | 'Under Observation';
-  vaccinationStatus: 'Up to Date' | 'Due' | 'Not Vaccinated';
-  notes?: string;
-}
+import { useAnimalContext, Animal } from '@/context/AnimalContext';
 
 const getHealthColor = (status: string) => {
   switch (status) {
@@ -68,9 +59,9 @@ const getAnimalIcon = (type: string) => {
 };
 
 export function LivestockManagement() {
+  const { animals, addAnimal, updateAnimal } = useAnimalContext();
   const [isAddAnimalOpen, setIsAddAnimalOpen] = useState(false);
   const [editingAnimal, setEditingAnimal] = useState<Animal | null>(null);
-  const [animals, setAnimals] = useState<Animal[]>([]);
   const [newAnimal, setNewAnimal] = useState({
     tagNumber: '',
     type: '' as Animal['type'] | '',
@@ -98,33 +89,25 @@ export function LivestockManagement() {
     if (newAnimal.tagNumber && newAnimal.type && newAnimal.sex) {
       if (editingAnimal) {
         // Update existing animal
-        setAnimals(
-          animals.map((a) =>
-            a.id === editingAnimal.id
-              ? {
-                  ...editingAnimal,
-                  tagNumber: newAnimal.tagNumber,
-                  type: newAnimal.type as Animal['type'],
-                  sex: newAnimal.sex as Animal['sex'],
-                  healthStatus: newAnimal.healthStatus,
-                  vaccinationStatus: newAnimal.vaccinationStatus,
-                  notes: newAnimal.notes,
-                }
-              : a
-          )
-        );
-      } else {
-        // Add new animal
-        const animal: Animal = {
-          id: Date.now(),
+        updateAnimal(editingAnimal.id, {
+          ...editingAnimal,
           tagNumber: newAnimal.tagNumber,
           type: newAnimal.type as Animal['type'],
           sex: newAnimal.sex as Animal['sex'],
           healthStatus: newAnimal.healthStatus,
           vaccinationStatus: newAnimal.vaccinationStatus,
           notes: newAnimal.notes,
-        };
-        setAnimals([...animals, animal]);
+        });
+      } else {
+        // Add new animal
+        addAnimal({
+          tagNumber: newAnimal.tagNumber,
+          type: newAnimal.type as Animal['type'],
+          sex: newAnimal.sex as Animal['sex'],
+          healthStatus: newAnimal.healthStatus,
+          vaccinationStatus: newAnimal.vaccinationStatus,
+          notes: newAnimal.notes,
+        });
       }
 
       resetForm();
@@ -257,11 +240,10 @@ export function LivestockManagement() {
                           key={status}
                           type="button"
                           onClick={() => setNewAnimal({ ...newAnimal, healthStatus: status })}
-                          className={`flex-1 py-2.5 px-3 rounded-md border-2 text-sm font-medium transition-all ${
-                            newAnimal.healthStatus === status
+                          className={`flex-1 py-2.5 px-3 rounded-md border-2 text-sm font-medium transition-all ${newAnimal.healthStatus === status
                               ? getHealthColor(status) + ' border-current'
                               : 'bg-background text-muted-foreground border-border hover:border-muted-foreground'
-                          }`}
+                            }`}
                         >
                           {status}
                         </button>
@@ -428,11 +410,10 @@ export function LivestockManagement() {
                         key={status}
                         type="button"
                         onClick={() => setNewAnimal({ ...newAnimal, healthStatus: status })}
-                        className={`flex-1 py-2.5 px-3 rounded-md border-2 text-sm font-medium transition-all ${
-                          newAnimal.healthStatus === status
+                        className={`flex-1 py-2.5 px-3 rounded-md border-2 text-sm font-medium transition-all ${newAnimal.healthStatus === status
                             ? getHealthColor(status) + ' border-current'
                             : 'bg-background text-muted-foreground border-border hover:border-muted-foreground'
-                        }`}
+                          }`}
                       >
                         {status}
                       </button>
