@@ -72,7 +72,7 @@ export function Dashboard({ farmData, onNavigate }: DashboardProps) {
               </div>
             </div>
           </div>
-          <h1 className="text-4xl font-semibold text-foreground">Welcome to MooMetrics!</h1>
+          <h1 className="text-4xl font-semibold text-foreground">Welcome to Matendere Farms</h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Your comprehensive farm management system is ready to help you track crops, livestock,
             equipment, and finances all in one place.
@@ -282,7 +282,7 @@ export function Dashboard({ farmData, onNavigate }: DashboardProps) {
       {/* Header */}
       <div className="flex flex-col space-y-2 md:flex-row md:justify-between md:items-center md:space-y-0">
         <div>
-          <h1 className="text-3xl font-semibold text-foreground">MooMetrics Dashboard</h1>
+          <h1 className="text-3xl font-semibold text-foreground">Matendere Farms Dashboard</h1>
           <p className="text-muted-foreground">
             {hasData
               ? "Here's what's happening on your farm today."

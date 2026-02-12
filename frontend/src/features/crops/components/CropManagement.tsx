@@ -28,7 +28,6 @@ import {
   Edit,
   Eye,
   Sprout,
-  ArrowRight,
 } from 'lucide-react';
 
 interface CropField {
@@ -45,14 +44,7 @@ interface CropField {
   lastWatered: string;
 }
 
-interface Task {
-  id: number;
-  task: string;
-  field: string;
-  date: string;
-  priority: string;
-  type: string;
-}
+
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -69,18 +61,7 @@ const getStatusColor = (status: string) => {
   }
 };
 
-const getPriorityColor = (priority: string) => {
-  switch (priority) {
-    case 'Critical':
-      return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800';
-    case 'High':
-      return 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800';
-    case 'Medium':
-      return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800';
-    default:
-      return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/30 dark:text-gray-400 dark:border-gray-800';
-  }
-};
+
 
 export function CropManagement() {
   const [isAddFieldOpen, setIsAddFieldOpen] = useState(false);
@@ -194,7 +175,7 @@ export function CropManagement() {
                   <Label htmlFor="crop-type">Crop Type</Label>
                   <Select
                     value={newField.crop}
-                    onValueChange={(value) => setNewField({ ...newField, crop: value })}
+                    onValueChange={(value: string) => setNewField({ ...newField, crop: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select crop type" />
@@ -327,7 +308,7 @@ export function CropManagement() {
                 <Label htmlFor="crop-type">Crop Type</Label>
                 <Select
                   value={newField.crop}
-                  onValueChange={(value) => setNewField({ ...newField, crop: value })}
+                  onValueChange={(value: string) => setNewField({ ...newField, crop: value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select crop type" />
@@ -436,9 +417,9 @@ export function CropManagement() {
                 <div className="text-2xl font-bold">
                   {cropFields.length > 0
                     ? Math.round(
-                        cropFields.reduce((sum, field) => sum + field.soilMoisture, 0) /
-                          cropFields.length
-                      )
+                      cropFields.reduce((sum, field) => sum + field.soilMoisture, 0) /
+                      cropFields.length
+                    )
                     : 0}
                   %
                 </div>

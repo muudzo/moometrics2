@@ -28,11 +28,11 @@ export function Header({
           </SidebarTrigger>
           <div className="flex items-center gap-2 md:hidden">
             <MooMetricsLogo size={24} className="text-primary" />
-            <span className="font-semibold text-foreground">MooMetrics</span>
+            <span className="font-semibold text-foreground">Matendere Farms</span>
           </div>
           <div className="hidden md:block">
             <p className="text-sm text-muted-foreground">
-              Welcome back to your MooMetrics dashboard
+              Welcome back to your Matendere Farms dashboard
             </p>
           </div>
         </div>

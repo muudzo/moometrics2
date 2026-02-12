@@ -10,7 +10,7 @@ import {
 } from './ui/sidebar';
 import { navigationItems } from '../constants/app-constants';
 import { MooMetricsLogo } from './MooMetricsLogo';
-import { ArrowLeft, Settings, User } from 'lucide-react';
+import { Settings, User } from 'lucide-react';
 
 interface AppSidebarProps {
   activeComponent: string;
@@ -36,7 +36,7 @@ export function AppSidebar({ activeComponent, setActiveComponent }: AppSidebarPr
             </div>
             <div className="text-left">
               <h2 className="font-semibold text-foreground group-hover:text-accent-foreground">
-                MooMetrics
+                Matendere Farms
               </h2>
               <p className="text-xs text-muted-foreground">Back to Dashboard</p>
             </div>
