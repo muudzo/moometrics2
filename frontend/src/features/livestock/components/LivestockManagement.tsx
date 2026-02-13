@@ -191,7 +191,7 @@ export function LivestockManagement() {
                       <Label htmlFor="animal-type">Animal Type *</Label>
                       <Select
                         value={newAnimal.type}
-                        onValueChange={(value) =>
+                        onValueChange={(value: string) =>
                           setNewAnimal({ ...newAnimal, type: value as Animal['type'] })
                         }
                       >
@@ -211,7 +211,7 @@ export function LivestockManagement() {
                       <Label htmlFor="sex">Sex *</Label>
                       <Select
                         value={newAnimal.sex}
-                        onValueChange={(value) =>
+                        onValueChange={(value: string) =>
                           setNewAnimal({ ...newAnimal, sex: value as Animal['sex'] })
                         }
                       >
@@ -241,8 +241,8 @@ export function LivestockManagement() {
                           type="button"
                           onClick={() => setNewAnimal({ ...newAnimal, healthStatus: status })}
                           className={`flex-1 py-2.5 px-3 rounded-md border-2 text-sm font-medium transition-all ${newAnimal.healthStatus === status
-                              ? getHealthColor(status) + ' border-current'
-                              : 'bg-background text-muted-foreground border-border hover:border-muted-foreground'
+                            ? getHealthColor(status) + ' border-current'
+                            : 'bg-background text-muted-foreground border-border hover:border-muted-foreground'
                             }`}
                         >
                           {status}
@@ -254,7 +254,7 @@ export function LivestockManagement() {
                     <Label htmlFor="vaccination">Vaccination Status</Label>
                     <Select
                       value={newAnimal.vaccinationStatus}
-                      onValueChange={(value) =>
+                      onValueChange={(value: string) =>
                         setNewAnimal({
                           ...newAnimal,
                           vaccinationStatus: value as Animal['vaccinationStatus'],
@@ -319,7 +319,7 @@ export function LivestockManagement() {
         </div>
         <Dialog
           open={isAddAnimalOpen}
-          onOpenChange={(open) => {
+          onOpenChange={(open: boolean) => {
             setIsAddAnimalOpen(open);
             if (!open) resetForm();
           }}
@@ -361,7 +361,7 @@ export function LivestockManagement() {
                     <Label htmlFor="animal-type">Animal Type *</Label>
                     <Select
                       value={newAnimal.type}
-                      onValueChange={(value) =>
+                      onValueChange={(value: string) =>
                         setNewAnimal({ ...newAnimal, type: value as Animal['type'] })
                       }
                     >
@@ -381,7 +381,7 @@ export function LivestockManagement() {
                     <Label htmlFor="sex">Sex *</Label>
                     <Select
                       value={newAnimal.sex}
-                      onValueChange={(value) =>
+                      onValueChange={(value: string) =>
                         setNewAnimal({ ...newAnimal, sex: value as Animal['sex'] })
                       }
                     >
@@ -411,8 +411,8 @@ export function LivestockManagement() {
                         type="button"
                         onClick={() => setNewAnimal({ ...newAnimal, healthStatus: status })}
                         className={`flex-1 py-2.5 px-3 rounded-md border-2 text-sm font-medium transition-all ${newAnimal.healthStatus === status
-                            ? getHealthColor(status) + ' border-current'
-                            : 'bg-background text-muted-foreground border-border hover:border-muted-foreground'
+                          ? getHealthColor(status) + ' border-current'
+                          : 'bg-background text-muted-foreground border-border hover:border-muted-foreground'
                           }`}
                       >
                         {status}
@@ -424,7 +424,7 @@ export function LivestockManagement() {
                   <Label htmlFor="vaccination">Vaccination Status</Label>
                   <Select
                     value={newAnimal.vaccinationStatus}
-                    onValueChange={(value) =>
+                    onValueChange={(value: string) =>
                       setNewAnimal({
                         ...newAnimal,
                         vaccinationStatus: value as Animal['vaccinationStatus'],
