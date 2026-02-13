@@ -28,20 +28,17 @@ class Settings(BaseSettings):
 
     # Database
     database_url: Union[str, PostgresDsn] = Field(
-        default="sqlite:///./moometrics.db", description="Database connection string"
+        default="postgresql+psycopg2://postgres:postgres@db:5432/moometrics",
+        description="Database connection string"
     )
+    postgres_host: str = Field(default="db", description="Postgres host")
+    postgres_port: int = Field(default=5432, description="Postgres port")
+    postgres_db: str = Field(default="moometrics", description="Postgres database name")
+    postgres_user: str = Field(default="postgres", description="Postgres user")
+    postgres_password: str = Field(default="postgres", description="Postgres password")
 
-    # Server
-    backend_port: int = Field(default=8000, description="Backend server port")
-    frontend_url: str = Field(..., description="Frontend URL for CORS")
-
-    # API URLs
-    openweather_base_url: str = Field(
-        default="https://api.openweathermap.org/data/2.5",
-        description="OpenWeatherMap API base URL",
-    )
-
-    # Cache settings
+    # Redis Cache settings
+    redis_url: str = Field(default="redis://redis:6379/0", description="Redis connection URL")
     cache_ttl_seconds: int = Field(
         default=300, description="Cache TTL in seconds (5 minutes default)"
     )

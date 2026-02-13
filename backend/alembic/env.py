@@ -16,19 +16,13 @@ load_dotenv()
 # Add the root directory to sys.path
 sys.path.append(os.getcwd())
 
-from models import Base
+from app.core.config import get_settings
+from app.models import Base
 target_metadata = Base.metadata
 
-# Database URL from environment
-def get_url():
-    user = os.getenv("DB_USER")
-    password = os.getenv("DB_PASS")
-    host = os.getenv("DB_HOST", "localhost")
-    port = os.getenv("DB_PORT", "5432")
-    db = os.getenv("DB_NAME")
-    return f"postgresql://{user}:{password}@{host}:{port}/{db}"
-
-config.set_main_option("sqlalchemy.url", get_url())
+# Database URL from settings
+settings = get_settings()
+config.set_main_option("sqlalchemy.url", str(settings.database_url))
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

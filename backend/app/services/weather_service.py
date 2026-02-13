@@ -11,26 +11,32 @@ settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
+from app.core.cache import get_cache, set_cache
+
 async def get_weather_by_coordinates(
     latitude: float, longitude: float
 ) -> WeatherResponse:
     """
-    Fetch weather data for given coordinates from OpenWeatherMap API.
-
-    Args:
-        latitude: Latitude coordinate
-        longitude: Longitude coordinate
-
-    Returns:
-        WeatherResponse with current weather data
+    Fetch weather data for given coordinates from OpenWeatherMap API,
+    with Redis caching.
     """
+    cache_key = f"weather:{latitude}:{longitude}"
+    
+    # Check cache
+    cached_data = get_cache(cache_key)
+    if cached_data:
+        logger.info(f"Cache HIT for weather at {latitude}, {longitude}")
+        return WeatherResponse(**cached_data)
+
+    logger.info(f"Cache MISS for weather at {latitude}, {longitude}")
+    
     # Mock data if no API key is configured
     if (
         settings.openweather_api_key == "YOUR_API_KEY"
         or not settings.openweather_api_key
     ):
         logger.info("Using mock weather data (no API key configured)")
-        return WeatherResponse(
+        mock_res = WeatherResponse(
             temperature=22.0,
             condition="Sunny",
             location="Farm Location (Mock Data)",
@@ -38,6 +44,11 @@ async def get_weather_by_coordinates(
             wind_speed=12.0,
             icon="01d",
         )
+        set_cache(cache_key, mock_res.model_dump(), ttl=settings.cache_ttl_seconds)
+        return mock_res
+
+    # ... [rest of the function for fetching real data] ...
+    # (Note: I'll need to update the real data fetch to cache too)
 
     # Fetch real data from OpenWeatherMap
     url = f"{settings.openweather_base_url}/weather"
@@ -74,7 +85,7 @@ async def get_weather_by_coordinates(
                 f"Successfully fetched weather for {data.get('name', 'Unknown')}"
             )
 
-            return WeatherResponse(
+            res = WeatherResponse(
                 temperature=round(data["main"]["temp"], 1),
                 condition=data["weather"][0]["main"],
                 location=data.get("name", "Unknown Location"),
@@ -82,6 +93,9 @@ async def get_weather_by_coordinates(
                 wind_speed=round(data["wind"]["speed"], 1),
                 icon=data["weather"][0]["icon"],
             )
+            # Cache the successful response
+            set_cache(cache_key, res.model_dump(), ttl=settings.cache_ttl_seconds)
+            return res
 
     except httpx.TimeoutException:
         logger.error("OpenWeatherMap API request timed out")

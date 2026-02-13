@@ -70,11 +70,16 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
+from app.api.v1.endpoints import auth, farms, animals, crops, tasks
+
+# ... [other imports] ...
+
 # Include Routers
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(farms.router, prefix="/api/v1/farms", tags=["farms"])
 app.include_router(animals.router, prefix="/api/v1/animals", tags=["animals"])
 app.include_router(crops.router, prefix="/api/v1/crops", tags=["crops"])
+app.include_router(tasks.router, prefix="/api/v1/tasks", tags=["tasks"])
 
 # Legacy/Utility routers
 app.include_router(weather.router)
