@@ -1,17 +1,21 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { SidebarProvider } from './components/ui/sidebar';
 import { AppSidebar } from './components/AppSidebar';
 import { Header } from './components/Header';
-import { Dashboard } from './features/dashboard/components/Dashboard';
-import { CropManagement } from '@/features/crops/components/CropManagement';
-import { LivestockManagement } from '@/features/livestock/components/LivestockManagement';
-import { EquipmentTracking } from '@/features/equipment/components/EquipmentTracking';
-import { FinanceTracking } from '@/features/finance/components/FinanceTracking';
 import { AuthProvider, useAuth } from './features/auth/context/AuthContext';
 import { LocationProvider } from './context/LocationContext';
 import { AnimalProvider } from './context/AnimalContext';
-import { Login } from './features/auth/components/Login';
 import { Toaster } from 'sonner';
+import { Loading } from './components/Loading';
+
+// Lazy load feature components
+const Dashboard = lazy(() => import('./features/dashboard/components/Dashboard').then(m => ({ default: m.Dashboard })));
+const CropManagement = lazy(() => import('@/features/crops/components/CropManagement').then(m => ({ default: m.CropManagement })));
+const LivestockManagement = lazy(() => import('@/features/livestock/components/LivestockManagement').then(m => ({ default: m.LivestockManagement })));
+const EquipmentTracking = lazy(() => import('@/features/equipment/components/EquipmentTracking').then(m => ({ default: m.EquipmentTracking })));
+const FinanceTracking = lazy(() => import('@/features/finance/components/FinanceTracking').then(m => ({ default: m.FinanceTracking })));
+const Login = lazy(() => import('./features/auth/components/Login').then(m => ({ default: m.Login })));
+
 
 function AppContent() {
   const [activeComponent, setActiveComponent] = useState('dashboard');
@@ -20,7 +24,11 @@ function AppContent() {
   const { isAuthenticated } = useAuth();
 
   if (!isAuthenticated) {
-    return <Login />;
+    return (
+      <Suspense fallback={<Loading />}>
+        <Login />
+      </Suspense>
+    );
   }
 
 
@@ -68,7 +76,11 @@ function AppContent() {
               toggleDarkMode={toggleDarkMode}
             />
 
-            <main className="flex-1 overflow-auto bg-background">{renderComponent()}</main>
+            <main className="flex-1 overflow-auto bg-background">
+              <Suspense fallback={<Loading />}>
+                {renderComponent()}
+              </Suspense>
+            </main>
           </div>
         </div>
       </SidebarProvider>
