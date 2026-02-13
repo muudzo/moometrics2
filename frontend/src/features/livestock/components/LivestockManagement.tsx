@@ -195,7 +195,7 @@ export function LivestockManagement() {
                           setNewAnimal({ ...newAnimal, type: value as Animal['type'] })
                         }
                       >
-                        <SelectTrigger className="h-11">
+                        <SelectTrigger className="h-11" data-testid="type-select">
                           <SelectValue placeholder="Select" />
                         </SelectTrigger>
                         <SelectContent>
@@ -215,7 +215,7 @@ export function LivestockManagement() {
                           setNewAnimal({ ...newAnimal, sex: value as Animal['sex'] })
                         }
                       >
-                        <SelectTrigger className="h-11">
+                        <SelectTrigger className="h-11" data-testid="sex-select">
                           <SelectValue placeholder="Select" />
                         </SelectTrigger>
                         <SelectContent>
@@ -365,7 +365,7 @@ export function LivestockManagement() {
                         setNewAnimal({ ...newAnimal, type: value as Animal['type'] })
                       }
                     >
-                      <SelectTrigger className="h-11">
+                      <SelectTrigger className="h-11" data-testid="type-select">
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent>
@@ -385,7 +385,7 @@ export function LivestockManagement() {
                         setNewAnimal({ ...newAnimal, sex: value as Animal['sex'] })
                       }
                     >
-                      <SelectTrigger className="h-11">
+                      <SelectTrigger className="h-11" data-testid="sex-select">
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent>
