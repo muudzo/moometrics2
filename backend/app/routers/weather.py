@@ -2,9 +2,11 @@
 Weather API router.
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
 from app.services.weather_service import get_weather_by_coordinates
 from app.models.schemas import WeatherResponse
+from app.api import deps
+from app import models
 
 router = APIRouter(prefix="/api/weather", tags=["weather"])
 
@@ -13,6 +15,7 @@ router = APIRouter(prefix="/api/weather", tags=["weather"])
 async def get_weather(
     lat: float = Query(..., description="Latitude coordinate"),
     lon: float = Query(..., description="Longitude coordinate"),
+    current_user: models.User = Depends(deps.get_current_user),
 ):
     """
     Get current weather data for specified coordinates.

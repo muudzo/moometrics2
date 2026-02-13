@@ -3,8 +3,8 @@ Configuration management for the backend API.
 """
 
 from functools import lru_cache
-from typing import Literal
-from pydantic import Field, field_validator
+from typing import Literal, List, Union
+from pydantic import Field, field_validator, AnyHttpUrl, PostgresDsn, computed_field
 from pydantic_settings import BaseSettings
 
 
@@ -17,18 +17,23 @@ class Settings(BaseSettings):
     )
 
     # API Keys
-    openweather_api_key: str = Field(
-        default="YOUR_API_KEY", description="OpenWeatherMap API key"
-    )
-    openai_api_key: str = Field(
-        default="", description="OpenAI API key for crop predictions"
+    openweather_api_key: str = Field(..., description="OpenWeatherMap API key")
+    openai_api_key: str = Field(default="", description="OpenAI API key")
+
+    # Security
+    secret_key: str = Field(..., description="Secret key for JWT")
+    algorithm: str = Field(default="HS256", description="JWT algorithm")
+    access_token_expire_minutes: int = Field(default=30, description="Access token expiry")
+    refresh_token_expire_days: int = Field(default=7, description="Refresh token expiry")
+
+    # Database
+    database_url: Union[str, PostgresDsn] = Field(
+        default="sqlite:///./moometrics.db", description="Database connection string"
     )
 
     # Server
     backend_port: int = Field(default=8000, description="Backend server port")
-    frontend_url: str = Field(
-        default="http://localhost:3000", description="Frontend URL for CORS"
-    )
+    frontend_url: str = Field(..., description="Frontend URL for CORS")
 
     # API URLs
     openweather_base_url: str = Field(
@@ -48,7 +53,7 @@ class Settings(BaseSettings):
     @classmethod
     def validate_weather_api_key(cls, v: str) -> str:
         """Validate OpenWeatherMap API key format."""
-        if v and v != "YOUR_API_KEY" and len(v) < 10:
+        if len(v) < 10:
             raise ValueError("OpenWeatherMap API key seems invalid (too short)")
         return v
 

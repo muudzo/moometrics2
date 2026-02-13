@@ -2,15 +2,20 @@
 AI Predictions API router.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from app.services.ai_service import get_planting_prediction
 from app.models.schemas import PredictionRequest, PredictionResponse
+from app.api import deps
+from app import models
 
 router = APIRouter(prefix="/api/predictions", tags=["predictions"])
 
 
 @router.post("/planting", response_model=PredictionResponse)
-async def predict_planting(request: PredictionRequest):
+async def predict_planting(
+    request: PredictionRequest,
+    current_user: models.User = Depends(deps.get_current_user),
+):
     """
     Get AI-powered planting and harvest predictions.
 

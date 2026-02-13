@@ -4,7 +4,7 @@ Weather service for fetching data from OpenWeatherMap API.
 
 import httpx
 import logging
-from app.config import get_settings
+from app.core.config import get_settings
 from app.models.schemas import WeatherResponse
 
 settings = get_settings()

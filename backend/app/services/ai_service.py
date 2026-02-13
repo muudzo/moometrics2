@@ -3,7 +3,7 @@ AI service for agricultural predictions using OpenAI.
 """
 
 from openai import OpenAI
-from app.config import get_settings
+from app.core.config import get_settings
 from app.models.schemas import PredictionRequest, PredictionResponse
 from datetime import datetime, timedelta
 import logging
