@@ -1,17 +1,18 @@
 from typing import List
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from app.models import Animal
 from app.schemas.animal import AnimalCreate, AnimalUpdate
 
 
 def get_animal(db: Session, animal_id: int):
-    return db.query(Animal).filter(Animal.id == animal_id).first()
+    return db.query(Animal).filter(Animal.id == animal_id, Animal.is_deleted == False).first()
 
 
 def get_animals_by_farm(db: Session, farm_id: int, skip: int = 0, limit: int = 100):
     return (
         db.query(Animal)
-        .filter(Animal.farm_id == farm_id)
+        .filter(Animal.farm_id == farm_id, Animal.is_deleted == False)
         .offset(skip)
         .limit(limit)
         .all()
@@ -37,6 +38,9 @@ def update_animal(db: Session, db_animal: Animal, animal_update: AnimalUpdate):
 
 
 def delete_animal(db: Session, db_animal: Animal):
-    db.delete(db_animal)
+    db_animal.is_deleted = True
+    db_animal.deleted_at = func.now()
+    db.add(db_animal)
     db.commit()
+    db.refresh(db_animal)
     return db_animal

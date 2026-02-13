@@ -1,17 +1,18 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from app.models import Farm
 from app.schemas.farm import FarmCreate, FarmUpdate
 
 
 def get_farm(db: Session, farm_id: int):
-    return db.query(Farm).filter(Farm.id == farm_id).first()
+    return db.query(Farm).filter(Farm.id == farm_id, Farm.is_deleted == False).first()
 
 
 def get_farms_by_owner(db: Session, owner_id: str, skip: int = 0, limit: int = 100):
     return (
         db.query(Farm)
-        .filter(Farm.owner_id == owner_id)
+        .filter(Farm.owner_id == owner_id, Farm.is_deleted == False)
         .offset(skip)
         .limit(limit)
         .all()
@@ -37,6 +38,9 @@ def update_farm(db: Session, db_farm: Farm, farm_update: FarmUpdate):
 
 
 def delete_farm(db: Session, db_farm: Farm):
-    db.delete(db_farm)
+    db_farm.is_deleted = True
+    db_farm.deleted_at = func.now()
+    db.add(db_farm)
     db.commit()
+    db.refresh(db_farm)
     return db_farm

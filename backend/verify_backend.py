@@ -40,7 +40,8 @@ def run_tests():
     if response.status_code != 200:
         print(f"Login failed: {response.text}")
         return False
-    token = response.json()["access_token"]
+    response_json = response.json()
+    token = response_json["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     print("Login successful, token received.")
 
@@ -81,6 +82,31 @@ def run_tests():
         return False
     animal_id = response.json()["id"]
     print(f"Animal created with ID: {animal_id}")
+
+    # 6. Test Refresh Token
+    print("Testing Refresh Token...")
+    refresh_token = response_json["refresh_token"]
+    response = requests.post(f"{BASE_URL}/auth/refresh?refresh_token={refresh_token}")
+    if response.status_code != 200:
+        print(f"Refresh Token failed: {response.text}")
+        return False
+    new_access_token = response.json()["access_token"]
+    print("Refresh successful, new access token received.")
+    headers["Authorization"] = f"Bearer {new_access_token}"
+
+    # 7. Test Soft Delete
+    print("Testing Soft Delete (Animal)...")
+    response = requests.delete(f"{BASE_URL}/animals/{animal_id}", headers=headers)
+    if response.status_code != 200:
+        print(f"Delete Animal failed: {response.text}")
+        return False
+    # Validate it's gone from list
+    response = requests.get(f"{BASE_URL}/animals/?farm_id={farm_id}", headers=headers)
+    animals = response.json()
+    if any(a["id"] == animal_id for a in animals):
+        print("Soft delete failed: Animal still returned in list!")
+        return False
+    print("Soft delete successful: Animal removed from list.")
     
     print("Verification Successful!")
     return True
