@@ -33,6 +33,9 @@ celery==5.3.6
 redis==5.0.1
 flower==2.0.1
 
+# Observability
+prometheus-fastapi-instrumentator==6.1.0
+
 # Linting and Formatting
 flake8==7.0.0
 black==24.1.0

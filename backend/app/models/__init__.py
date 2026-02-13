@@ -88,3 +88,14 @@ class RefreshToken(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="refresh_tokens")
+
+
+class FailedTask(Base):
+    __tablename__ = "failed_tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(String, index=True, nullable=False)
+    payload = Column(String, nullable=False)
+    exception = Column(String, nullable=False)
+    retry_count = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

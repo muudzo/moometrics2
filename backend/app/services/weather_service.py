@@ -1,28 +1,29 @@
 """
-Weather service for fetching data from OpenWeatherMap API.
+Weather service for fetching data from OpenWeatherMap API with Redis caching and Circuit Breaker protection.
 """
 
 import httpx
 import logging
+import time
 from app.core.config import get_settings
 from app.models.schemas import WeatherResponse
+from app.core.cache import get_cache, set_cache
+from app.core.circuit_breaker import weather_breaker, CircuitState
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
-
-from app.core.cache import get_cache, set_cache
 
 async def get_weather_by_coordinates(
     latitude: float, longitude: float
 ) -> WeatherResponse:
     """
     Fetch weather data for given coordinates from OpenWeatherMap API,
-    with Redis caching.
+    with Redis caching and Circuit Breaker.
     """
     cache_key = f"weather:{latitude}:{longitude}"
     
-    # Check cache
+    # 1. Check Redis Cache
     cached_data = get_cache(cache_key)
     if cached_data:
         logger.info(f"Cache HIT for weather at {latitude}, {longitude}")
@@ -30,27 +31,26 @@ async def get_weather_by_coordinates(
 
     logger.info(f"Cache MISS for weather at {latitude}, {longitude}")
     
-    # Mock data if no API key is configured
+    # 2. Check Circuit Breaker State
+    now = time.time()
+    if weather_breaker.state == CircuitState.OPEN:
+        if now - weather_breaker.opened_at > weather_breaker.recovery_timeout:
+            weather_breaker.state = CircuitState.HALF_OPEN
+        else:
+            logger.warning(f"Circuit Breaker [OpenWeather] is OPEN. Serving mock data.")
+            return _get_mock_weather("Circuit Breaker OPEN")
+
+    # 3. Handle Mock Data (No API Key)
     if (
         settings.openweather_api_key == "YOUR_API_KEY"
         or not settings.openweather_api_key
     ):
         logger.info("Using mock weather data (no API key configured)")
-        mock_res = WeatherResponse(
-            temperature=22.0,
-            condition="Sunny",
-            location="Farm Location (Mock Data)",
-            humidity=45,
-            wind_speed=12.0,
-            icon="01d",
-        )
+        mock_res = _get_mock_weather("No API Key")
         set_cache(cache_key, mock_res.model_dump(), ttl=settings.cache_ttl_seconds)
         return mock_res
 
-    # ... [rest of the function for fetching real data] ...
-    # (Note: I'll need to update the real data fetch to cache too)
-
-    # Fetch real data from OpenWeatherMap
+    # 4. Fetch Real Data with Resilience
     url = f"{settings.openweather_base_url}/weather"
     params = {
         "lat": latitude,
@@ -61,29 +61,10 @@ async def get_weather_by_coordinates(
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            logger.info(f"Fetching weather for coordinates: {latitude}, {longitude}")
+            logger.info(f"Fetching weather for: {latitude}, {longitude}")
             response = await client.get(url, params=params)
-
-            # Check for API errors
-            if response.status_code == 401:
-                logger.error("OpenWeatherMap API key is invalid or not activated")
-                return _get_mock_weather("Invalid API Key")
-
-            if response.status_code == 429:
-                logger.error("OpenWeatherMap API rate limit exceeded")
-                return _get_mock_weather("Rate Limit Exceeded")
-
-            if response.status_code != 200:
-                logger.error(
-                    f"OpenWeatherMap API error: {response.status_code} - "
-                    f"{response.text}"
-                )
-                return _get_mock_weather(f"API Error {response.status_code}")
-
+            response.raise_for_status()
             data = response.json()
-            logger.info(
-                f"Successfully fetched weather for {data.get('name', 'Unknown')}"
-            )
 
             res = WeatherResponse(
                 temperature=round(data["main"]["temp"], 1),
@@ -93,22 +74,28 @@ async def get_weather_by_coordinates(
                 wind_speed=round(data["wind"]["speed"], 1),
                 icon=data["weather"][0]["icon"],
             )
-            # Cache the successful response
+
+            # Success: Reset breaker if in HALF_OPEN
+            if weather_breaker.state == CircuitState.HALF_OPEN:
+                logger.info(f"Circuit Breaker [OpenWeather] CLOSED")
+                weather_breaker.state = CircuitState.CLOSED
+                weather_breaker.failures = []
+
+            # Cache successful response
             set_cache(cache_key, res.model_dump(), ttl=settings.cache_ttl_seconds)
             return res
 
-    except httpx.TimeoutException:
-        logger.error("OpenWeatherMap API request timed out")
-        return _get_mock_weather("Timeout")
-    except httpx.RequestError as e:
-        logger.error(f"Network error fetching weather: {str(e)}")
-        return _get_mock_weather("Network Error")
-    except (KeyError, ValueError) as e:
-        logger.error(f"Error parsing weather data: {str(e)}")
-        return _get_mock_weather("Parse Error")
     except Exception as e:
-        logger.error(f"Unexpected error fetching weather: {str(e)}")
-        return _get_mock_weather("Unknown Error")
+        # Failure: Record and potentially open breaker
+        weather_breaker.failures.append(time.time())
+        weather_breaker._cleanup_old_failures()
+        if len(weather_breaker.failures) >= weather_breaker.failure_threshold:
+            logger.error(f"Circuit Breaker [OpenWeather] OPENING")
+            weather_breaker.state = CircuitState.OPEN
+            weather_breaker.opened_at = time.time()
+        
+        logger.error(f"Error fetching real weather: {e}")
+        return _get_mock_weather(f"API Error: {str(e)}")
 
 
 def _get_mock_weather(reason: str) -> WeatherResponse:

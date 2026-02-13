@@ -13,19 +13,40 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
+import time
+from app.core.cache import get_cache, set_cache
+from app.core.circuit_breaker import openai_breaker, CircuitState
+
 async def get_planting_prediction(request: PredictionRequest) -> PredictionResponse:
     """
-    Get AI-powered planting and harvest predictions for a crop.
-
-    Args:
-        request: Prediction request with crop type, location, and soil info
-
-    Returns:
-        PredictionResponse with planting/harvest dates and recommendations
+    Get AI-powered planting and harvest predictions with Redis caching and Circuit Breaker.
     """
-    # Mock response if no OpenAI API key is configured
+    # 1. Create cache key
+    cache_key = f"prediction:{request.crop_type}:{request.latitude}:{request.longitude}"
+    
+    # 2. Check cache
+    cached_data = get_cache(cache_key)
+    if cached_data:
+        logger.info(f"Cache HIT for AI prediction ({request.crop_type})")
+        return PredictionResponse(**cached_data)
+
+    logger.info(f"Cache MISS for AI prediction ({request.crop_type})")
+
+    # 3. Check Circuit Breaker
+    now = time.time()
+    if openai_breaker.state == CircuitState.OPEN:
+        if now - openai_breaker.opened_at > openai_breaker.recovery_timeout:
+            openai_breaker.state = CircuitState.HALF_OPEN
+        else:
+            logger.warning(f"Circuit Breaker [OpenAI] is OPEN. Serving mock prediction.")
+            return _get_mock_prediction(request)
+
+    # 4. Mock response if no OpenAI API key is configured
     if not settings.openai_api_key:
-        return _get_mock_prediction(request)
+        logger.info("Using mock AI prediction (no API key)")
+        mock_res = _get_mock_prediction(request)
+        set_cache(cache_key, mock_res.model_dump(), ttl=settings.cache_ttl_seconds)
+        return mock_res
 
     try:
         client = OpenAI(api_key=settings.openai_api_key)

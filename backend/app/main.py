@@ -21,11 +21,16 @@ logger = logging.getLogger("api")
 
 settings = get_settings()
 
+from prometheus_fastapi_instrumentator import Instrumentator
+
 app = FastAPI(
     title="MooMetrics API",
     description="Backend API for MooMetrics Smart Farming Dashboard",
     version="1.0.0",
 )
+
+# Initialize Prometheus Instrumentator
+Instrumentator().instrument(app).expose(app)
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
