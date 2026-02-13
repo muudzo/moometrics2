@@ -1,6 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { AnimalProvider, useAnimalContext, Animal } from '../AnimalContext';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { ReactNode } from 'react';
 
 // Mock sonner toast

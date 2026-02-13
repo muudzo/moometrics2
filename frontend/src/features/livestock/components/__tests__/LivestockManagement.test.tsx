@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { LivestockManagement } from '../LivestockManagement';
 import { AnimalProvider } from '@/context/AnimalContext';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 
 // Mock Lucide icons to avoid rendering complexities in tests
