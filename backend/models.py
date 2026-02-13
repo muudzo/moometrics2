@@ -1,48 +1,54 @@
-from db import get_cursor, conn
+import os
+from sqlalchemy import create_engine, Column, Integer, String, Text, Date, ForeignKey
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, relationship
+from dotenv import load_dotenv
 
-def create_tables():
-    cursor = get_cursor()
+load_dotenv()
+
+DATABASE_URL = f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASS')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+class Worker(Base):
+    __tablename__ = "workers"
     
-    # Workers table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS workers (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            role VARCHAR(50) NOT NULL
-        );
-    """)
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False, unique=True)
+    role = Column(String(50), nullable=False, default="worker")
     
-    # Employees table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS employees (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            role VARCHAR(50) NOT NULL
-        );
-    """)
+    records = relationship("FarmRecord", back_populates="worker", cascade="all, delete-orphan")
+
+class Employee(Base):
+    __tablename__ = "employees"
     
-    # Managers table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS managers (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            role VARCHAR(50) NOT NULL
-        );
-    """)
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False, unique=True)
+    role = Column(String(50), nullable=False, default="employee")
+
+class Manager(Base):
+    __tablename__ = "managers"
     
-    # Farm Records table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS farm_records (
-            id SERIAL PRIMARY KEY,
-            worker_id INTEGER REFERENCES workers(id),
-            activity TEXT NOT NULL,
-            date DATE DEFAULT CURRENT_DATE
-        );
-    """)
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False, unique=True)
+    role = Column(String(50), nullable=False, default="manager")
+
+class FarmRecord(Base):
+    __tablename__ = "farm_records"
     
-    conn.commit()
-    cursor.close()
+    id = Column(Integer, primary_key=True, index=True)
+    worker_id = Column(Integer, ForeignKey("workers.id", ondelete="CASCADE"), nullable=False)
+    activity = Column(Text, nullable=False)
+    date = Column(Date, server_default="CURRENT_DATE")
+    
+    worker = relationship("Worker", back_populates="records")
+
+# Function to initialize database (for manual setup without Alembic initially if needed)
+def init_db():
+    Base.metadata.create_all(bind=engine)
 
 if __name__ == "__main__":
-    create_tables()
-    print("Tables created successfully.")
+    init_db()
+    print("SQLAlchemy models synchronized.")

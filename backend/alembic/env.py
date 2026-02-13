@@ -5,25 +5,30 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from app.core.config import get_settings
-
 config = context.config
-settings = get_settings()
-config.set_main_option("sqlalchemy.url", str(settings.database_url))
 
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
-
-# add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
 import sys
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Add the root directory to sys.path
 sys.path.append(os.getcwd())
 
-from app.core.database import Base
-from app.models import User, Farm, Animal, Crop
+from models import Base
 target_metadata = Base.metadata
+
+# Database URL from environment
+def get_url():
+    user = os.getenv("DB_USER")
+    password = os.getenv("DB_PASS")
+    host = os.getenv("DB_HOST", "localhost")
+    port = os.getenv("DB_PORT", "5432")
+    db = os.getenv("DB_NAME")
+    return f"postgresql://{user}:{password}@{host}:{port}/{db}"
+
+config.set_main_option("sqlalchemy.url", get_url())
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
