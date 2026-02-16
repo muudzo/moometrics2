@@ -21,9 +21,13 @@ const Login = lazy(() => import('./features/auth/components/Login').then(m => ({
 
 function AppContent() {
   const [activeComponent, setActiveComponent] = useState('dashboard');
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
+
+  if (isAuthLoading) {
+    return <Loading />;
+  }
   const [darkMode, setDarkMode] = useState(false);
-  const { isAuthenticated } = useAuth();
 
   if (!isAuthenticated) {
     return (
