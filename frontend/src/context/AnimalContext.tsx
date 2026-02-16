@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 import { offlineService } from '../services/offline_service';
+import { useAuth } from '../features/auth/context/AuthContext';
 
 export interface Animal {
     id: number;
@@ -38,6 +39,7 @@ const AnimalContext = createContext<AnimalContextType | undefined>(undefined);
 
 export function AnimalProvider({ children }: { children: ReactNode }) {
     const [animals, setAnimals] = useState<Animal[]>([]);
+    const { user } = useAuth();
 
     useEffect(() => {
         const loadInitialData = async () => {
@@ -47,6 +49,8 @@ export function AnimalProvider({ children }: { children: ReactNode }) {
             }
         };
         loadInitialData();
+        // Initial sync attempt
+        syncData();
     }, []);
 
     const addAnimal = async (animal: Omit<Animal, 'id'>) => {
@@ -68,6 +72,9 @@ export function AnimalProvider({ children }: { children: ReactNode }) {
         toast.success('Animal recorded locally', {
             description: `${animal.tagNumber} will sync once online`,
         });
+
+        // Trigger sync attempt
+        syncData();
     };
 
     const updateAnimal = async (id: number, updated: Animal) => {
@@ -84,6 +91,8 @@ export function AnimalProvider({ children }: { children: ReactNode }) {
         toast.success('Update saved locally', {
             description: `${updated.tagNumber} will sync once online`,
         });
+
+        syncData();
     };
 
     const deleteAnimal = async (id: number) => {
@@ -101,14 +110,19 @@ export function AnimalProvider({ children }: { children: ReactNode }) {
         toast.success('Removal queued', {
             description: animal ? `${animal.tagNumber} will be removed from server` : 'Animal removal pending sync',
         });
+
+        syncData();
     };
 
     const syncData = async () => {
-        await offlineService.attemptSync();
+        // In a real app, we'd get a proper JWT from AuthContext
+        // For now, we use the username as a placeholder token if needed
+        const token = user?.username;
+        await offlineService.attemptSync(token);
     };
 
     const getLivestockSummary = (): LivestockSummary[] => {
-        const summary = animals.reduce(
+        return animals.reduce(
             (acc, animal) => {
                 const existing = acc.find((item) => item.type === animal.type);
                 if (existing) {
@@ -120,7 +134,6 @@ export function AnimalProvider({ children }: { children: ReactNode }) {
             },
             [] as LivestockSummary[]
         );
-        return summary;
     };
 
     const getTotalAnimals = (): number => {

@@ -64,26 +64,51 @@ class OfflineService {
         await db.delete(STORE_NAME, id);
     }
 
-    async attemptSync() {
+    async attemptSync(token?: string) {
         if (!navigator.onLine) return;
 
         const queue = await this.getQueue();
         if (queue.length === 0) return;
 
+        console.log(`Attempting to sync ${queue.length} mutations...`);
+
         for (const mutation of queue) {
             try {
-                const success = await this.processMutation(mutation);
-                if (success) {
+                const result = await this.processMutation(mutation, token);
+
+                if (result.success) {
                     await this.dequeueMutation(mutation.id!);
+                } else if (result.conflict) {
+                    // SERVER AUTHORITATIVE: Discard local mutation on conflict
+                    console.warn(`Conflict detected for mutation ${mutation.id}. Discarding local change.`);
+                    await this.dequeueMutation(mutation.id!);
+
+                    // Log event (could be Firebase Analytics in real app)
+                    console.log('queue_conflict_detected', {
+                        mutation_id: mutation.id,
+                        collection: mutation.collection,
+                        type: mutation.type
+                    });
+
+                    // We should trigger a global refresh or notify user here
+                    // For now, we'll continue with the rest of the queue
+                } else if (!result.retry) {
+                    // Non-retryable error (e.g. 400 Bad Request) - discard to unblock queue
+                    console.error(`Non-retryable error for mutation ${mutation.id}. Discarding.`);
+                    await this.dequeueMutation(mutation.id!);
+                } else {
+                    // Network error or server 500 - stop and keep in queue
+                    console.log(`Retryable error for mutation ${mutation.id}. Stopping sync.`);
+                    break;
                 }
             } catch (error) {
-                console.error('Failed to process mutation:', error);
-                break; // Stop processing queue on error to maintain order
+                console.error('Unexpected sync error:', error);
+                break; // Maintain order
             }
         }
     }
 
-    private async processMutation(mutation: Mutation): Promise<boolean> {
+    private async processMutation(mutation: Mutation, token?: string): Promise<{ success: boolean; retry: boolean; conflict: boolean }> {
         const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
         let url = `${BACKEND_URL}/api/v1/${mutation.collection}`;
         let method = 'POST';
@@ -94,18 +119,34 @@ class OfflineService {
         }
 
         try {
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+            };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
             const response = await fetch(url, {
                 method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    // TODO: Add Authorization header from AuthContext
-                },
+                headers,
                 body: mutation.type === 'DELETE' ? undefined : JSON.stringify(mutation.data),
             });
 
-            return response.ok;
+            if (response.ok) {
+                return { success: true, retry: false, conflict: false };
+            }
+
+            if (response.status === 409) {
+                return { success: false, retry: false, conflict: true };
+            }
+
+            // 5xx errors or 429 (Too Many Requests) are retryable
+            const isRetryable = response.status >= 500 || response.status === 429;
+            return { success: false, retry: isRetryable, conflict: false };
+
         } catch (error) {
-            return false;
+            // Network failures are always retryable
+            return { success: false, retry: true, conflict: false };
         }
     }
 }

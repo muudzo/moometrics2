@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,7 +68,7 @@ const getAnimalIcon = (type: string, imageUrl?: string) => {
 };
 
 export function LivestockManagement() {
-  const { animals, addAnimal, updateAnimal } = useAnimalContext();
+  const { animals, addAnimal, updateAnimal, deleteAnimal } = useAnimalContext();
   const [isAddAnimalOpen, setIsAddAnimalOpen] = useState(false);
   const [editingAnimal, setEditingAnimal] = useState<Animal | null>(null);
   const [newAnimal, setNewAnimal] = useState({
@@ -388,14 +389,38 @@ export function LivestockManagement() {
                     </CardDescription>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => openEditDialog(animal)}
-                  className="h-12 w-12 p-0 rounded-full hover:bg-muted"
-                >
-                  <Edit className="w-5 h-5 text-muted-foreground" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (!navigator.onLine) {
+                        toast.error('Offline Mode', { description: 'Records can only be edited when online to prevent conflicts.' });
+                        return;
+                      }
+                      openEditDialog(animal);
+                    }}
+                    className="h-12 w-12 p-0 rounded-full hover:bg-muted"
+                  >
+                    <Edit className="w-5 h-5 text-muted-foreground" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (!navigator.onLine) {
+                        toast.error('Offline Mode', { description: 'Records can only be removed when online.' });
+                        return;
+                      }
+                      if (window.confirm('Are you sure you want to remove this record?')) {
+                        deleteAnimal(animal.id);
+                      }
+                    }}
+                    className="h-12 w-12 p-0 rounded-full hover:bg-muted text-destructive"
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-4 pt-0 space-y-4">
