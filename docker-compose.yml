@@ -1,8 +1,9 @@
-version: '3.8'
-
 services:
+  # -----------------------------
+  # PostgreSQL Database
+  # -----------------------------
   db:
-    image: postgres:16
+    image: postgres:16-alpine
     container_name: moometrics_db
     restart: always
     environment:
@@ -14,11 +15,14 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-moometrics}" ]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # -----------------------------
+  # Redis Cache
+  # -----------------------------
   redis:
     image: redis:7
     container_name: moometrics_redis
@@ -31,6 +35,9 @@ services:
       timeout: 5s
       retries: 5
 
+  # -----------------------------
+  # Backend API
+  # -----------------------------
   backend:
     build:
       context: ./backend
@@ -42,15 +49,18 @@ services:
       redis:
         condition: service_healthy
     environment:
-      - ENVIRONMENT=production
-      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-moometrics}
-      - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=${SECRET_KEY:-supersecretkeyForDevelopmentOnly12345}
-      - FRONTEND_URL=http://localhost:3000
-      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-moometrics}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-supersecretkeyForDevelopmentOnly12345}
+      FRONTEND_URL: http://localhost:3000
+      OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY}
     ports:
       - "8000:8000"
 
+  # -----------------------------
+  # Celery Worker
+  # -----------------------------
   worker:
     build:
       context: ./backend
@@ -63,12 +73,15 @@ services:
       redis:
         condition: service_healthy
     environment:
-      - ENVIRONMENT=production
-      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-moometrics}
-      - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=${SECRET_KEY:-supersecretkeyForDevelopmentOnly12345}
-      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-moometrics}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-supersecretkeyForDevelopmentOnly12345}
+      OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY}
 
+  # -----------------------------
+  # Flower Monitoring
+  # -----------------------------
   flower:
     build:
       context: ./backend
@@ -79,10 +92,13 @@ services:
       redis:
         condition: service_healthy
     environment:
-      - REDIS_URL=redis://redis:6379/0
+      REDIS_URL: redis://redis:6379/0
     ports:
       - "5555:5555"
 
+  # -----------------------------
+  # Frontend SPA
+  # -----------------------------
   frontend:
     build:
       context: ./frontend
@@ -94,17 +110,20 @@ services:
     ports:
       - "3000:80"
 
+  # -----------------------------
+  # Database Backup Sidecar
+  # -----------------------------
   db-backup:
-    image: postgres:16
+    image: postgres:16-alpine
     container_name: moometrics_db_backup
     restart: always
     depends_on:
       db:
         condition: service_healthy
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-moometrics}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-moometrics}
     volumes:
       - ./backend/scripts/backup_db.sh:/backup_db.sh
       - db_backups:/backups
@@ -118,6 +137,9 @@ services:
       done
       "
 
+# -----------------------------
+# Volumes
+# -----------------------------
 volumes:
   postgres_data:
   db_backups:
