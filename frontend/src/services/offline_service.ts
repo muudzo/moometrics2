@@ -1,4 +1,5 @@
 import { openDB, IDBPDatabase } from 'idb';
+import { Analytics, Crashlytics } from '../lib/tracking';
 
 const DB_NAME = 'moometrics-db';
 const STORE_NAME = 'mutation-queue';
@@ -78,13 +79,17 @@ class OfflineService {
 
                 if (result.success) {
                     await this.dequeueMutation(mutation.id!);
+                    Analytics.trackEvent('sync_success', {
+                        mutation_id: mutation.id,
+                        collection: mutation.collection,
+                        type: mutation.type
+                    });
                 } else if (result.conflict) {
                     // SERVER AUTHORITATIVE: Discard local mutation on conflict
                     console.warn(`Conflict detected for mutation ${mutation.id}. Discarding local change.`);
                     await this.dequeueMutation(mutation.id!);
 
-                    // Log event (could be Firebase Analytics in real app)
-                    console.log('queue_conflict_detected', {
+                    Analytics.trackEvent('queue_conflict_detected', {
                         mutation_id: mutation.id,
                         collection: mutation.collection,
                         type: mutation.type
@@ -99,10 +104,18 @@ class OfflineService {
                 } else {
                     // Network error or server 500 - stop and keep in queue
                     console.log(`Retryable error for mutation ${mutation.id}. Stopping sync.`);
+                    Analytics.trackEvent('sync_failed', {
+                        mutation_id: mutation.id,
+                        error: 'retryable_failure'
+                    });
                     break;
                 }
             } catch (error) {
                 console.error('Unexpected sync error:', error);
+                Crashlytics.logError('Unexpected sync error', error);
+                Analytics.trackEvent('sync_failed', {
+                    error: 'unexpected_error'
+                });
                 break; // Maintain order
             }
         }

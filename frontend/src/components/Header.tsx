@@ -4,7 +4,8 @@ import { SidebarTrigger } from './ui/sidebar';
 import { MooMetricsLogo } from './MooMetricsLogo';
 import { LocationSettings } from '@/features/settings/components/LocationSettings';
 import { notifications } from '../constants/app-constants';
-import { Bell, User, Menu, Sun, Moon } from 'lucide-react';
+import { Bell, User, Menu, Sun, Moon, Bug } from 'lucide-react';
+import { Crashlytics } from '../lib/tracking';
 
 interface HeaderProps {
   showNotifications: boolean;
@@ -98,6 +99,16 @@ export function Header({
               </div>
             )}
           </div>
+
+          {/* Test Crash (Verification) */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => Crashlytics.testCrash()}
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <Bug className="w-4 h-4" />
+          </Button>
 
           {/* User Menu */}
           <Button variant="ghost" size="sm">

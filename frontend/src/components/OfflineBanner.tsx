@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from 'react';
 import { WifiOff, RefreshCw } from 'lucide-react';
+import { Analytics } from "../lib/tracking";
 import { offlineService } from '@/services/offline_service';
 import { cn } from '@/components/ui/utils';
 
@@ -10,7 +11,10 @@ export function OfflineBanner() {
 
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
-        const handleOffline = () => setIsOnline(false);
+        const handleOffline = () => {
+            setIsOnline(false);
+            Analytics.trackEvent('offline_mode_enabled');
+        };
 
         window.addEventListener('online', handleOnline);
         window.addEventListener('offline', handleOffline);

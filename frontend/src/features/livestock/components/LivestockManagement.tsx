@@ -20,6 +20,7 @@ import { PawPrint, Plus, Edit, Beef, Bird, Rabbit, Camera, X } from 'lucide-reac
 import { useAnimalContext, Animal } from '@/context/AnimalContext';
 import { Camera as CapCamera, CameraResultType } from '@capacitor/camera';
 import { processImage } from '@/lib/image-processing';
+import { Analytics, Crashlytics } from '@/lib/tracking';
 
 const getHealthColor = (status: string) => {
   switch (status) {
@@ -100,7 +101,10 @@ export function LivestockManagement() {
         }));
       }
     } catch (error) {
-      console.error('Camera error:', error);
+      console.error('Photo capture error:', error);
+      Analytics.trackEvent('photo_upload_failed', { error: 'capture_or_processing_error' });
+      Crashlytics.logError('Photo capture/processing error', error);
+      toast.error('Failed to capture photo');
     }
   };
 

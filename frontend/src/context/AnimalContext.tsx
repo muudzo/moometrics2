@@ -2,6 +2,7 @@ import { createContext, useContext, useState, ReactNode, useEffect } from 'react
 import { toast } from 'sonner';
 import { offlineService } from '../services/offline_service';
 import { useAuth } from '../features/auth/context/AuthContext';
+import { Analytics } from '../lib/tracking';
 
 export interface Animal {
     id: number;
@@ -52,6 +53,10 @@ export function AnimalProvider({ children }: { children: ReactNode }) {
         // Initial sync attempt
         syncData();
 
+        if (user?.username) {
+            Analytics.identifyUser(user.username);
+        }
+
         // Auto-sync when connection restored
         const handleOnline = () => {
             console.log('Network restored. Triggering sync...');
@@ -67,41 +72,44 @@ export function AnimalProvider({ children }: { children: ReactNode }) {
             ...animal,
             id: Date.now(),
         };
-        const updatedAnimals = [...animals, newAnimal];
-        setAnimals(updatedAnimals);
-        await offlineService.saveData('animals', updatedAnimals);
 
-        // Queue mutation for backend
+        const currentAnimals = [...animals, newAnimal];
+        setAnimals(currentAnimals);
+        await offlineService.saveData('animals', currentAnimals);
+
         await offlineService.enqueueMutation({
-            type: 'ADD',
             collection: 'animals',
-            data: newAnimal
+            type: 'ADD',
+            data: newAnimal,
         });
 
-        toast.success('Animal recorded locally', {
-            description: `${animal.tagNumber} will sync once online`,
+        Analytics.trackEvent('animal_added', {
+            species: animal.type,
+            health_status: animal.healthStatus
         });
 
-        // Trigger sync attempt
         syncData();
+        toast.success('Animal record saved locally');
     };
 
     const updateAnimal = async (id: number, updated: Animal) => {
-        const updatedAnimals = animals.map((a) => (a.id === id ? updated : a));
-        setAnimals(updatedAnimals);
-        await offlineService.saveData('animals', updatedAnimals);
+        const currentAnimals = animals.map((a) => (a.id === id ? updated : a));
+        setAnimals(currentAnimals);
+        await offlineService.saveData('animals', currentAnimals);
 
         await offlineService.enqueueMutation({
-            type: 'UPDATE',
             collection: 'animals',
-            data: updated
+            type: 'UPDATE',
+            data: updated,
         });
 
-        toast.success('Update saved locally', {
-            description: `${updated.tagNumber} will sync once online`,
+        Analytics.trackEvent('animal_updated', {
+            species: updated.type, // Changed from animal.species to updated.type as per Animal interface
+            health_status: updated.healthStatus
         });
 
         syncData();
+        toast.success('Update saved locally');
     };
 
     const deleteAnimal = async (id: number) => {
