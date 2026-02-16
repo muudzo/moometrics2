@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
+import { offlineService } from '../services/offline_service';
 
 export interface Animal {
     id: number;
@@ -9,6 +10,8 @@ export interface Animal {
     healthStatus: 'Healthy' | 'Sick' | 'Under Observation';
     vaccinationStatus: 'Up to Date' | 'Due' | 'Not Vaccinated';
     notes?: string;
+    imageUrl?: string; // Added for native photo support
+    farm_id?: number; // Added for backend compatibility
 }
 
 export interface LivestockSummary {
@@ -28,6 +31,7 @@ interface AnimalContextType {
         sick: number;
         underObservation: number;
     };
+    syncData: () => Promise<void>;
 }
 
 const AnimalContext = createContext<AnimalContextType | undefined>(undefined);
@@ -35,30 +39,72 @@ const AnimalContext = createContext<AnimalContextType | undefined>(undefined);
 export function AnimalProvider({ children }: { children: ReactNode }) {
     const [animals, setAnimals] = useState<Animal[]>([]);
 
-    const addAnimal = (animal: Omit<Animal, 'id'>) => {
+    useEffect(() => {
+        const loadInitialData = async () => {
+            const storedAnimals = await offlineService.getData('animals');
+            if (storedAnimals && storedAnimals.length > 0) {
+                setAnimals(storedAnimals as Animal[]);
+            }
+        };
+        loadInitialData();
+    }, []);
+
+    const addAnimal = async (animal: Omit<Animal, 'id'>) => {
         const newAnimal: Animal = {
             ...animal,
             id: Date.now(),
         };
-        setAnimals((prev) => [...prev, newAnimal]);
-        toast.success('Animal added successfully', {
-            description: `${animal.tagNumber} has been recorded`,
+        const updatedAnimals = [...animals, newAnimal];
+        setAnimals(updatedAnimals);
+        await offlineService.saveData('animals', updatedAnimals);
+
+        // Queue mutation for backend
+        await offlineService.enqueueMutation({
+            type: 'ADD',
+            collection: 'animals',
+            data: newAnimal
+        });
+
+        toast.success('Animal recorded locally', {
+            description: `${animal.tagNumber} will sync once online`,
         });
     };
 
-    const updateAnimal = (id: number, updated: Animal) => {
-        setAnimals((prev) => prev.map((a) => (a.id === id ? updated : a)));
-        toast.success('Animal updated successfully', {
-            description: `${updated.tagNumber} has been updated`,
+    const updateAnimal = async (id: number, updated: Animal) => {
+        const updatedAnimals = animals.map((a) => (a.id === id ? updated : a));
+        setAnimals(updatedAnimals);
+        await offlineService.saveData('animals', updatedAnimals);
+
+        await offlineService.enqueueMutation({
+            type: 'UPDATE',
+            collection: 'animals',
+            data: updated
+        });
+
+        toast.success('Update saved locally', {
+            description: `${updated.tagNumber} will sync once online`,
         });
     };
 
-    const deleteAnimal = (id: number) => {
+    const deleteAnimal = async (id: number) => {
         const animal = animals.find((a) => a.id === id);
-        setAnimals((prev) => prev.filter((a) => a.id !== id));
-        toast.success('Animal deleted successfully', {
-            description: animal ? `${animal.tagNumber} has been removed` : 'Animal removed',
+        const updatedAnimals = animals.filter((a) => a.id !== id);
+        setAnimals(updatedAnimals);
+        await offlineService.saveData('animals', updatedAnimals);
+
+        await offlineService.enqueueMutation({
+            type: 'DELETE',
+            collection: 'animals',
+            data: { id }
         });
+
+        toast.success('Removal queued', {
+            description: animal ? `${animal.tagNumber} will be removed from server` : 'Animal removal pending sync',
+        });
+    };
+
+    const syncData = async () => {
+        await offlineService.attemptSync();
     };
 
     const getLivestockSummary = (): LivestockSummary[] => {
@@ -103,6 +149,7 @@ export function AnimalProvider({ children }: { children: ReactNode }) {
                 getLivestockSummary,
                 getTotalAnimals,
                 getHealthStats,
+                syncData,
             }}
         >
             {children}

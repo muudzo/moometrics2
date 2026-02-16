@@ -7,6 +7,7 @@ import { LocationProvider } from './context/LocationContext';
 import { AnimalProvider } from './context/AnimalContext';
 import { Toaster } from 'sonner';
 import { Loading } from './components/Loading';
+import { BottomNav } from './components/BottomNav';
 
 // Lazy load feature components
 const Dashboard = lazy(() => import('./features/dashboard/components/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -65,10 +66,12 @@ function AppContent() {
   return (
     <div className={`min-h-screen bg-background ${darkMode ? 'dark' : ''}`}>
       <SidebarProvider>
-        <div className="flex h-screen">
-          <AppSidebar activeComponent={activeComponent} setActiveComponent={setActiveComponent} />
+        <div className="flex h-screen overflow-hidden">
+          <div className="hidden md:flex">
+            <AppSidebar activeComponent={activeComponent} setActiveComponent={setActiveComponent} />
+          </div>
 
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col h-full bg-background">
             <Header
               showNotifications={showNotifications}
               setShowNotifications={setShowNotifications}
@@ -76,11 +79,13 @@ function AppContent() {
               toggleDarkMode={toggleDarkMode}
             />
 
-            <main className="flex-1 overflow-auto bg-background">
+            <main className="flex-1 overflow-auto bg-background pb-20 md:pb-0">
               <Suspense fallback={<Loading />}>
                 {renderComponent()}
               </Suspense>
             </main>
+
+            <BottomNav activeComponent={activeComponent} setActiveComponent={setActiveComponent} />
           </div>
         </div>
       </SidebarProvider>
