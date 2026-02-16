@@ -7,6 +7,8 @@ import { LocationProvider } from './context/LocationContext';
 import { AnimalProvider } from './context/AnimalContext';
 import { Toaster } from 'sonner';
 import { Loading } from './components/Loading';
+import { BottomNav } from './components/BottomNav';
+import { OfflineBanner } from './components/OfflineBanner';
 
 // Lazy load feature components
 const Dashboard = lazy(() => import('./features/dashboard/components/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -19,9 +21,13 @@ const Login = lazy(() => import('./features/auth/components/Login').then(m => ({
 
 function AppContent() {
   const [activeComponent, setActiveComponent] = useState('dashboard');
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
+
+  if (isAuthLoading) {
+    return <Loading />;
+  }
   const [darkMode, setDarkMode] = useState(false);
-  const { isAuthenticated } = useAuth();
 
   if (!isAuthenticated) {
     return (
@@ -65,10 +71,12 @@ function AppContent() {
   return (
     <div className={`min-h-screen bg-background ${darkMode ? 'dark' : ''}`}>
       <SidebarProvider>
-        <div className="flex h-screen">
-          <AppSidebar activeComponent={activeComponent} setActiveComponent={setActiveComponent} />
+        <div className="flex h-screen overflow-hidden">
+          <div className="hidden md:flex">
+            <AppSidebar activeComponent={activeComponent} setActiveComponent={setActiveComponent} />
+          </div>
 
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col h-full bg-background">
             <Header
               showNotifications={showNotifications}
               setShowNotifications={setShowNotifications}
@@ -76,11 +84,15 @@ function AppContent() {
               toggleDarkMode={toggleDarkMode}
             />
 
-            <main className="flex-1 overflow-auto bg-background">
+            <OfflineBanner />
+
+            <main className="flex-1 overflow-auto bg-background pb-20 md:pb-0">
               <Suspense fallback={<Loading />}>
                 {renderComponent()}
               </Suspense>
             </main>
+
+            <BottomNav activeComponent={activeComponent} setActiveComponent={setActiveComponent} />
           </div>
         </div>
       </SidebarProvider>

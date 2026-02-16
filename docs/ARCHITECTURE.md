@@ -1,84 +1,75 @@
 # MooMetrics Architecture Documentation
 
-This document provides a high-level overview of the MooMetrics system architecture, covering both the backend and frontend components, as well as the build and deployment processes.
+This document provides an in-depth overview of the MooMetrics system architecture, covering the backend and frontend components, data flow, and deployment processes.
 
 ## System Overview
 
-MooMetrics is a smart farming dashboard designed to help farmers manage livestock, crops, and farm operations. It follows a classic client-server architecture with a React-based frontend and a FastAPI-based backend.
+MooMetrics is designed as a modular, scalable dashboard for smart farming. It utilizes a **FastAPI** backend for robust data management and AI integrations, and a **React/TypeScript** frontend for a responsive and intuitive user experience.
 
 ---
 
 ## Backend Architecture
 
-The backend is built using **FastAPI**, providing a high-performance, asynchronous REST API.
+The backend is a high-performance REST API built with **FastAPI**.
 
-### Core Structure (`backend/app/`)
+### Core Modules (`backend/app/`)
 
-The backend follows a modular structure to ensure scalability and maintainability:
+- **`api/v1/endpoints/`**:
+    - `animals.py`: Livestock management (CRUD).
+    - `auth.py`: JWT authentication, login, and refresh token logic.
+    - `crops.py`: Crop rotation and planting management.
+    - `farms.py`: Farm profile and location settings.
+    - `tasks.py`: Operational task tracking.
+- **`services/`**:
+    - `ai_service.py`: Integration with OpenAI for agricultural predictions.
+    - `weather_service.py`: Integration with OpenWeatherMap API.
+- **`db/` & `crud/`**:
+    - SQLAlchemy-based ORM layer.
+    - Generic CRUD classes for standardized database operations.
+- **`models/` & `schemas/`**:
+    - `models/`: Database entity definitions.
+    - `schemas/`: Pydantic models for request/response validation.
 
-- **`api/`**: Contains the API routers. The core functionality is versioned under `v1/`.
-  - **`api/v1/endpoints/`**: Specific endpoint handlers for `auth`, `farms`, `animals`, and `crops`.
-- **`core/`**: Centralized configuration (`config.py`), security utilities (`security.py`), and global constants.
-- **`crud/`**: Database abstraction layer implementing Create, Read, Update, and Delete operations for models.
-- **`db/`**: Database session management and base classes for SQLAlchemy.
-- **`models/`**: SQLAlchemy models representing the database schema (e.g., `User`, `Farm`, `Animal`, `Crop`).
-- **`schemas/`**: Pydantic models for data validation and serialization (request and response bodies).
-- **`services/`**: Business logic layer that orchestrates CRUD operations and other external services (e.g., weather data, predictions).
-- **`routers/`**: Utility and legacy routers like `weather` and `predictions`.
-
-### Key Features
-- **Authentication**: JWT-based authentication with refresh token rotation.
-- **Database**: SQLite for local development, with **Alembic** used for schema migrations.
-- **Middleware**: Custom middleware for CORS and request logging (tracking process time and request IDs).
-- **Error Handling**: A global exception handler ensures consistent error responses across the API.
+### Infrastructure & Security
+- **Authentication**: JWT-based with Refresh Token Rotation for secure, persistent sessions.
+- **Database**: SQLite (Development) / PostgreSQL (Production) managed via **Alembic** migrations.
+- **Observability**: **Prometheus** instrumentation for metric collection and structured logging for request tracing.
 
 ---
 
 ## Frontend Architecture
 
-The frontend is a modern SPA built with **React** and **TypeScript**, powered by **Vite** for fast development and optimized builds.
+The frontend is a modern SPA built with **React** and **TypeScript**, optimized with **Vite**.
 
-### Core Structure (`frontend/src/`)
+### Feature-Based Structure (`frontend/src/features/`)
 
-The frontend is organized for modularity and reusability:
+The application is modularized by feature, each containing its own components, hooks, and services:
+- `livestock`: Animal health, tracking, and management.
+- `crops`: Field planning and harvest tracking.
+- `weather`: Real-time local weather and forecasts.
+- `finance`: Basic farm bookkeeping and expense tracking.
+- `equipment`: Inventory and maintenance logs.
 
-- **`features/`**: Feature-specific logic, components, and hooks (e.g., `livestock`, `weather`).
-- **`components/`**: Shared UI components, mostly built using **Radix UI** primitives and styled with **Tailwind CSS**.
-- **`context/`**: Global state management using the React Context API (e.g., `AnimalContext`).
-- **`constants/`**: Shared constants and configuration values.
-- **`styles/`**: Global CSS and styling themes.
-
-### Design System
-- **Radix UI**: Used for accessibility-first, unstyled components (dialogs, select, etc.).
-- **Tailwind CSS**: Used for utility-first styling, ensuring a consistent and responsive design.
-- **Lucide React**: Used for iconography.
-
----
-
-## Build and Deployment
-
-### Frontend Build
-The frontend uses **Vite** with the **SWC** plugin for extremely fast builds.
-
-- **Build Tool**: `vite build`
-- **Output Directory**: `frontend/build/`
-- **Optimization**:
-  - **Manual Chunking**: The build is optimized by splitting large dependencies into separate chunks (e.g., `vendor`, `charts`, `icons`, `radix-ui`).
-  - **Target**: `esnext` for modern browser compatibility.
-
-### Backend Build
-The backend is a standard Python application.
-
-- **Dependencies**: Managed via `requirements.txt`.
-- **Environment**: Configuration is handled through `.env` files and Pydantic Settings.
-- **Migrations**: `alembic upgrade head` is used to sync the database schema.
+### UI & Styling
+- **Radix UI**: Accessible UI primitives for complex components (modals, dropdowns).
+- **Tailwind CSS**: Utility-first CSS for rapid, consistent styling.
+- **Lucide React**: Modern iconography.
+- **State Management**: React Context API for global state (e.g., `AnimalContext`) and local state for component-specific logic.
 
 ---
 
-## Data Flow
+## Data Flow & Integration
 
-1. **User Interaction**: Users interact with the React frontend through a web browser.
-2. **API Requests**: The frontend sends HTTP requests to the FastAPI backend, including JWT tokens for authenticated routes.
-3. **Business Logic**: The backend processes requests, validates data using Pydantic, and executes business logic in the `services` layer.
-4. **Database Interaction**: The `crud` layer interacts with the SQLite database using SQLAlchemy.
-5. **Response**: The backend returns a JSON response, which the frontend uses to update the UI state.
+1. **Client Interaction**: User triggers an action in the React UI.
+2. **API Layer**: Frontend makes authenticated requests to the FastAPI backend.
+3. **Business Logic**: Backend service layer processes data, potentially calling external APIs (OpenAI/Weather).
+4. **Persistence**: The CRUD layer executes database operations via SQLAlchemy.
+5. **Real-time Updates**: The UI updates immediately upon successful API response, ensuring a seamless user experience.
+
+---
+
+## Build & Deployment
+
+- **Containerization**: Both services are containerized using **Docker** and orchestrated via **Docker Compose**.
+- **Frontend Build**: Vite compiles the TypeScript code into highly optimized chunks (vendor, charts, etc.).
+- **Backend Build**: Python-based ASGI server (Uvicorn) with Gunicorn as a process manager for production.

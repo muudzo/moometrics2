@@ -1,5 +1,8 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
+import { offlineService } from '../services/offline_service';
+import { useAuth } from '../features/auth/context/AuthContext';
+import { Analytics } from '../lib/tracking';
 
 export interface Animal {
     id: number;
@@ -9,6 +12,8 @@ export interface Animal {
     healthStatus: 'Healthy' | 'Sick' | 'Under Observation';
     vaccinationStatus: 'Up to Date' | 'Due' | 'Not Vaccinated';
     notes?: string;
+    imageUrl?: string; // Added for native photo support
+    farm_id?: number; // Added for backend compatibility
 }
 
 export interface LivestockSummary {
@@ -28,41 +33,113 @@ interface AnimalContextType {
         sick: number;
         underObservation: number;
     };
+    syncData: () => Promise<void>;
 }
 
 const AnimalContext = createContext<AnimalContextType | undefined>(undefined);
 
 export function AnimalProvider({ children }: { children: ReactNode }) {
     const [animals, setAnimals] = useState<Animal[]>([]);
+    const { user } = useAuth();
 
-    const addAnimal = (animal: Omit<Animal, 'id'>) => {
+    useEffect(() => {
+        const loadInitialData = async () => {
+            const storedAnimals = await offlineService.getData('animals');
+            if (storedAnimals && storedAnimals.length > 0) {
+                setAnimals(storedAnimals as Animal[]);
+            }
+        };
+        loadInitialData();
+        // Initial sync attempt
+        syncData();
+
+        if (user?.username) {
+            Analytics.identifyUser(user.username);
+        }
+
+        // Auto-sync when connection restored
+        const handleOnline = () => {
+            console.log('Network restored. Triggering sync...');
+            syncData();
+        };
+        window.addEventListener('online', handleOnline);
+
+        return () => window.removeEventListener('online', handleOnline);
+    }, [user]);
+
+    const addAnimal = async (animal: Omit<Animal, 'id'>) => {
         const newAnimal: Animal = {
             ...animal,
             id: Date.now(),
         };
-        setAnimals((prev) => [...prev, newAnimal]);
-        toast.success('Animal added successfully', {
-            description: `${animal.tagNumber} has been recorded`,
+
+        const currentAnimals = [...animals, newAnimal];
+        setAnimals(currentAnimals);
+        await offlineService.saveData('animals', currentAnimals);
+
+        await offlineService.enqueueMutation({
+            collection: 'animals',
+            type: 'ADD',
+            data: newAnimal,
         });
+
+        Analytics.trackEvent('animal_added', {
+            species: animal.type,
+            health_status: animal.healthStatus
+        });
+
+        syncData();
+        toast.success('Animal record saved locally');
     };
 
-    const updateAnimal = (id: number, updated: Animal) => {
-        setAnimals((prev) => prev.map((a) => (a.id === id ? updated : a)));
-        toast.success('Animal updated successfully', {
-            description: `${updated.tagNumber} has been updated`,
+    const updateAnimal = async (id: number, updated: Animal) => {
+        const currentAnimals = animals.map((a) => (a.id === id ? updated : a));
+        setAnimals(currentAnimals);
+        await offlineService.saveData('animals', currentAnimals);
+
+        await offlineService.enqueueMutation({
+            collection: 'animals',
+            type: 'UPDATE',
+            data: updated,
         });
+
+        Analytics.trackEvent('animal_updated', {
+            species: updated.type, // Changed from animal.species to updated.type as per Animal interface
+            health_status: updated.healthStatus
+        });
+
+        syncData();
+        toast.success('Update saved locally');
     };
 
-    const deleteAnimal = (id: number) => {
+    const deleteAnimal = async (id: number) => {
         const animal = animals.find((a) => a.id === id);
-        setAnimals((prev) => prev.filter((a) => a.id !== id));
-        toast.success('Animal deleted successfully', {
-            description: animal ? `${animal.tagNumber} has been removed` : 'Animal removed',
+        const updatedAnimals = animals.filter((a) => a.id !== id);
+        setAnimals(updatedAnimals);
+        await offlineService.saveData('animals', updatedAnimals);
+
+        await offlineService.enqueueMutation({
+            type: 'DELETE',
+            collection: 'animals',
+            data: { id }
         });
+
+        toast.success('Removal queued', {
+            description: animal ? `${animal.tagNumber} will be removed from server` : 'Animal removal pending sync',
+        });
+
+        syncData();
+    };
+
+    const syncData = async () => {
+        // In a real app, we'd get a proper JWT from AuthContext
+        // For now, we use the username as a placeholder token if needed
+        const token = user?.username;
+        await offlineService.attemptSync(token);
     };
 
     const getLivestockSummary = (): LivestockSummary[] => {
-        const summary = animals.reduce(
+        return animals.reduce(
             (acc, animal) => {
                 const existing = acc.find((item) => item.type === animal.type);
                 if (existing) {
@@ -74,7 +151,6 @@ export function AnimalProvider({ children }: { children: ReactNode }) {
             },
             [] as LivestockSummary[]
         );
-        return summary;
     };
 
     const getTotalAnimals = (): number => {
@@ -103,6 +179,7 @@ export function AnimalProvider({ children }: { children: ReactNode }) {
                 getLivestockSummary,
                 getTotalAnimals,
                 getHealthStats,
+                syncData,
             }}
         >
             {children}

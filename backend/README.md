@@ -1,21 +1,24 @@
 # MooMetrics Backend API
 
-Python backend for MooMetrics agricultural management system, providing weather data and AI-powered agricultural predictions.
+Python backend for MooMetrics agricultural management system, providing a robust REST API for farm, livestock, and crop management, integrated with AI predictions and weather data.
 
 ## Features
 
-- **Weather API**: Location-based weather data from OpenWeatherMap
-- **AI Predictions**: OpenAI-powered planting and harvest recommendations
-- **CORS Support**: Configured for frontend integration
-- **Mock Data**: Fallback responses when API keys are not configured
+- **Livestock Management**: CRUD operations for animals, health tracking, and records.
+- **Farm & Crop Management**: Manage farm profiles, crop rotations, and planting schedules.
+- **AI Predictions**: OpenAI-powered planting and harvest recommendations.
+- **Weather API**: Location-based weather data from OpenWeatherMap.
+- **Security**: JWT-based authentication with refresh token rotation.
+- **Observability**: Prometheus metrics and structured logging.
 
 ## Tech Stack
 
-- **FastAPI**: Modern, fast web framework
-- **Uvicorn**: ASGI server
-- **OpenAI**: AI predictions
-- **httpx**: Async HTTP client
-- **Pydantic**: Data validation
+- **FastAPI**: Modern, high-performance web framework.
+- **SQLAlchemy**: SQL toolkit and ORM.
+- **Alembic**: Database migrations.
+- **OpenAI**: AI predictions logic.
+- **httpx**: Async HTTP client for external integrations.
+- **Pydantic**: Data validation and settings management.
 
 ## Setup
 
@@ -24,7 +27,9 @@ Python backend for MooMetrics agricultural management system, providing weather 
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# On Windows: venv\Scripts\activate
+# On Mac/Linux:
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
@@ -32,105 +37,44 @@ pip install -r requirements.txt
 
 ```bash
 cp .env.example .env
-# Edit .env and add your API keys
+# Edit .env and add your API keys/DB credentials
 ```
 
-Required environment variables:
-
-- `OPENWEATHER_API_KEY`: Your OpenWeatherMap API key
-- `OPENAI_API_KEY`: Your OpenAI API key (optional, uses mock data if not provided)
-
-### 3. Run the Server
+### 3. Run Migrations
 
 ```bash
-# From the backend directory
+alembic upgrade head
+```
+
+### 4. Run the Server
+
+```bash
 uvicorn app.main:app --reload --port 8000
 ```
 
-The API will be available at `http://localhost:8000`
+## API Endpoints (v1)
 
-## API Endpoints
+All core endpoints are prefixed with `/api/v1`.
 
-### Weather
+### Animals
+- **GET** `/api/v1/animals`: List all animals.
+- **POST** `/api/v1/animals`: Register a new animal.
 
-**GET** `/api/weather?lat={latitude}&lon={longitude}`
+### Farms
+- **GET** `/api/v1/farms`: Get farm details.
 
-Get current weather data for specified coordinates.
+### Auth
+- **POST** `/api/v1/auth/login`: Authenticate and get tokens.
 
-**Example Request:**
+### Weather (Utility)
+- **GET** `/weather?lat={lat}&lon={lon}`: Get current weather.
 
-```bash
-curl "http://localhost:8000/api/weather?lat=40.7128&lon=-74.0060"
-```
-
-**Example Response:**
-
-```json
-{
-  "temperature": 22.0,
-  "condition": "Sunny",
-  "location": "New York",
-  "humidity": 45,
-  "wind_speed": 12.0,
-  "icon": "01d"
-}
-```
-
-### AI Predictions
-
-**POST** `/api/predictions/planting`
-
-Get AI-powered planting and harvest predictions.
-
-**Example Request:**
-
-```bash
-curl -X POST "http://localhost:8000/api/predictions/planting" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "crop_type": "corn",
-    "latitude": 40.7128,
-    "longitude": -74.0060,
-    "soil_type": "loamy",
-    "current_season": "spring"
-  }'
-```
-
-**Example Response:**
-
-```json
-{
-  "recommended_planting_date": "2024-04-15",
-  "expected_harvest_date": "2024-09-20",
-  "confidence": 0.75,
-  "recommendations": [
-    "Plant corn in well-drained soil with good sun exposure",
-    "Ensure soil pH is between 6.0 and 7.0 for optimal growth",
-    "Water regularly, especially during germination and flowering stages",
-    "Monitor for common pests and diseases specific to your region",
-    "Consider crop rotation to maintain soil health"
-  ]
-}
-```
-
-### Health Check
-
-**GET** `/health`
-
-Check if the API is running.
-
-**Example Response:**
-
-```json
-{
-  "status": "healthy"
-}
-```
+### Predictions (Utility)
+- **POST** `/predictions/planting`: Get AI planting advice.
 
 ## API Documentation
 
-Interactive API documentation is available at:
-
+Interactive documentation:
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
 
@@ -139,19 +83,14 @@ Interactive API documentation is available at:
 ```
 backend/
 ├── app/
-│   ├── __init__.py
-│   ├── main.py              # FastAPI application
-│   ├── config.py            # Configuration management
-│   ├── routers/
-│   │   ├── weather.py       # Weather endpoints
-│   │   └── predictions.py   # AI prediction endpoints
-│   ├── services/
-│   │   ├── weather_service.py  # Weather API logic
-│   │   └── ai_service.py       # OpenAI integration
-│   └── models/
-│       └── schemas.py       # Pydantic models
-├── .env.example
-├── .gitignore
+│   ├── api/v1/endpoints/    # API Route handlers
+│   ├── core/              # Config, Security
+│   ├── crud/              # DB Operations
+│   ├── models/            # SQLAlchemy Models
+│   ├── schemas/           # Pydantic Schemas
+│   ├── services/          # Business logic (AI, Weather)
+│   └── main.py            # Application entry point
+├── alembic/               # DB Migrations
 ├── requirements.txt
 └── README.md
 ```

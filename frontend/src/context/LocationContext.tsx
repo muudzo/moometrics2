@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { z } from 'zod';
+import { Preferences } from '@capacitor/preferences';
 
 // Define Zod schema for runtime validation
 const LocationSchema = z.object({
@@ -25,33 +26,37 @@ const STORAGE_KEY = 'moometrics_location';
 
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isMounted = useRef(false);
-
-  const [location, setLocation] = useState<Location | null>(() => {
-    try {
-      const savedLocation = localStorage.getItem(STORAGE_KEY);
-      if (!savedLocation) return null;
-      
-      const parsed = JSON.parse(savedLocation);
-      const result = LocationSchema.safeParse(parsed);
-      
-      if (!result.success) {
-        console.warn('Corrupted location data found in localStorage, clearing.', result.error);
-        localStorage.removeItem(STORAGE_KEY);
-        return null;
-      }
-      return result.data;
-    } catch (e) {
-      console.error('Failed to parse location from localStorage', e);
-      localStorage.removeItem(STORAGE_KEY);
-      return null;
-    }
-  });
-
-  const [isLoading, setIsLoading] = useState(false);
+  const [location, setLocation] = useState<Location | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     isMounted.current = true;
+
+    const loadSavedLocation = async () => {
+      try {
+        const { value } = await Preferences.get({ key: STORAGE_KEY });
+        if (value) {
+          const parsed = JSON.parse(value);
+          const result = LocationSchema.safeParse(parsed);
+          if (result.success) {
+            setLocation(result.data);
+            setIsLoading(false);
+            return;
+          }
+        }
+        // If no saved location, request browser location
+        requestBrowserLocation();
+      } catch (e) {
+        console.error('Failed to load location from storage', e);
+        requestBrowserLocation();
+      } finally {
+        if (isMounted.current) setIsLoading(false);
+      }
+    };
+
+    loadSavedLocation();
+
     return () => {
       isMounted.current = false;
     };
@@ -61,15 +66,13 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!navigator.geolocation) {
       if (isMounted.current) {
         setError('Geolocation is not supported by your browser');
-        // Set default location (New York as fallback)
         const defaultLoc: Location = {
           latitude: 40.7128,
           longitude: -74.006,
           name: 'Default Location',
           source: 'default',
         };
-        setLocation(defaultLoc);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultLoc));
+        saveLocation(defaultLoc);
       }
       return;
     }
@@ -89,8 +92,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           name: 'Current Location',
           source: 'browser',
         };
-        setLocation(newLocation);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newLocation));
+        saveLocation(newLocation);
         setIsLoading(false);
       },
       (err) => {
@@ -98,38 +100,33 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         setError(`Location access denied: ${err.message}`);
         setIsLoading(false);
-        // Set default location on error
         const defaultLoc: Location = {
           latitude: 40.7128,
           longitude: -74.006,
           name: 'Default Location',
           source: 'default',
         };
-        setLocation(defaultLoc);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultLoc));
+        saveLocation(defaultLoc);
       }
     );
   };
 
-  // Load saved location from localStorage on mount
-  useEffect(() => {
-    const savedLocation = localStorage.getItem(STORAGE_KEY);
-    if (!savedLocation) {
-      // Try browser geolocation on first load if no saved location
-      requestBrowserLocation();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const saveLocation = async (loc: Location) => {
+    setLocation(loc);
+    await Preferences.set({
+      key: STORAGE_KEY,
+      value: JSON.stringify(loc)
+    });
+  };
 
-  const setManualLocation = (lat: number, lon: number, name?: string) => {
+  const setManualLocation = async (lat: number, lon: number, name?: string) => {
     const newLocation: Location = {
       latitude: lat,
       longitude: lon,
       name: name || 'Manual Location',
       source: 'manual',
     };
-    
-    // Validate before setting
+
     const result = LocationSchema.safeParse(newLocation);
     if (!result.success) {
       console.error('Attempted to set invalid location', result.error);
@@ -138,8 +135,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     if (isMounted.current) {
-      setLocation(result.data);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(result.data));
+      await saveLocation(result.data);
       setError(null);
     }
   };
