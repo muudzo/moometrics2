@@ -19,6 +19,7 @@ import {
 import { PawPrint, Plus, Edit, Beef, Bird, Rabbit, Camera, X } from 'lucide-react';
 import { useAnimalContext, Animal } from '@/context/AnimalContext';
 import { Camera as CapCamera, CameraResultType } from '@capacitor/camera';
+import { processImage } from '@/lib/image-processing';
 
 const getHealthColor = (status: string) => {
   switch (status) {
@@ -92,9 +93,10 @@ export function LivestockManagement() {
       });
 
       if (image.base64String) {
+        const processedImage = await processImage(`data:image/jpeg;base64,${image.base64String}`);
         setNewAnimal((prev) => ({
           ...prev,
-          imageUrl: `data:image/jpeg;base64,${image.base64String}`,
+          imageUrl: processedImage,
         }));
       }
     } catch (error) {

@@ -51,7 +51,16 @@ export function AnimalProvider({ children }: { children: ReactNode }) {
         loadInitialData();
         // Initial sync attempt
         syncData();
-    }, []);
+
+        // Auto-sync when connection restored
+        const handleOnline = () => {
+            console.log('Network restored. Triggering sync...');
+            syncData();
+        };
+        window.addEventListener('online', handleOnline);
+
+        return () => window.removeEventListener('online', handleOnline);
+    }, [user]);
 
     const addAnimal = async (animal: Omit<Animal, 'id'>) => {
         const newAnimal: Animal = {
