@@ -3,8 +3,8 @@ Configuration management for the backend API.
 """
 
 from functools import lru_cache
-from typing import Literal, List, Union
-from pydantic import Field, field_validator, AnyHttpUrl, PostgresDsn, computed_field
+from typing import Literal, Union, Optional
+from pydantic import Field, field_validator, AnyHttpUrl, PostgresDsn
 from pydantic_settings import BaseSettings
 
 
@@ -20,11 +20,25 @@ class Settings(BaseSettings):
     openweather_api_key: str = Field(..., description="OpenWeatherMap API key")
     openai_api_key: str = Field(default="", description="OpenAI API key")
 
-    # Security
+    # Security / Auth
     secret_key: str = Field(..., description="Secret key for JWT")
     algorithm: str = Field(default="HS256", description="JWT algorithm")
     access_token_expire_minutes: int = Field(default=30, description="Access token expiry")
     refresh_token_expire_days: int = Field(default=7, description="Refresh token expiry")
+    auth_provider: Literal["local", "supabase"] = Field(
+        default="local",
+        description="Authentication provider: local JWT or Supabase",
+    )
+
+    # Supabase
+    supabase_url: Optional[AnyHttpUrl] = Field(
+        default=None,
+        description="Supabase project URL",
+    )
+    supabase_key: Optional[str] = Field(
+        default=None,
+        description="Supabase anon or service role key",
+    )
 
     # Database
     database_url: Union[str, PostgresDsn] = Field(
