@@ -8,7 +8,6 @@ import { AnimalProvider } from './context/AnimalContext';
 import { Toaster } from 'sonner';
 import { Loading } from './components/Loading';
 import { BottomNav } from './components/BottomNav';
-import { OfflineBanner } from './components/OfflineBanner';
 
 // Lazy load feature components
 const Dashboard = lazy(() => import('./features/dashboard/components/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -83,8 +82,6 @@ function AppContent() {
               darkMode={darkMode}
               toggleDarkMode={toggleDarkMode}
             />
-
-            <OfflineBanner />
 
             <main className="flex-1 overflow-auto bg-background pb-20 md:pb-0">
               <Suspense fallback={<Loading />}>

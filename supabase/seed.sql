@@ -1,0 +1,35 @@
+-- ============================================================
+-- MooMetrics: Optional Seed Data (for development only)
+-- ============================================================
+-- NOTE: You cannot seed auth.users directly via SQL.
+-- Instead:
+--   1. Sign up via the app UI (or Supabase dashboard → Authentication → Add User)
+--   2. Copy the UUID from the Users table
+--   3. Replace 'YOUR_USER_UUID' below with your actual user ID
+--   4. Replace 'YOUR_FARM_UUID' with the auto-created farm ID (check farms table)
+--   5. Run the INSERT statements below
+-- ============================================================
+
+-- Example: Seed animals for an existing user's farm
+-- INSERT INTO animals (tag_number, type, sex, health_status, vaccination_status, notes, farm_id, owner_id)
+-- VALUES
+--     ('A001', 'Cow',   'Female', 'Healthy',            'Up to Date',     'Dairy cow, 3 years old',    'YOUR_FARM_UUID', 'YOUR_USER_UUID'),
+--     ('A002', 'Cow',   'Female', 'Healthy',            'Up to Date',     'Dairy cow, 2 years old',    'YOUR_FARM_UUID', 'YOUR_USER_UUID'),
+--     ('A003', 'Goat',  'Male',   'Under Observation',  'Due',            'Showing mild symptoms',     'YOUR_FARM_UUID', 'YOUR_USER_UUID'),
+--     ('A004', 'Sheep', 'Female', 'Healthy',            'Up to Date',     NULL,                        'YOUR_FARM_UUID', 'YOUR_USER_UUID'),
+--     ('A005', 'Pig',   'Male',   'Healthy',            'Not Vaccinated', 'New arrival',               'YOUR_FARM_UUID', 'YOUR_USER_UUID');
+
+-- Example: Seed crops
+-- INSERT INTO crops (name, variety, planting_date, status, area_hectares, farm_id, owner_id)
+-- VALUES
+--     ('Maize',    'Pioneer 30G19',  '2025-10-15', 'Growing',   5.5,  'YOUR_FARM_UUID', 'YOUR_USER_UUID'),
+--     ('Soybeans', 'PAN 1583R',      '2025-11-01', 'Planted',   3.0,  'YOUR_FARM_UUID', 'YOUR_USER_UUID'),
+--     ('Wheat',    'SST 806',        '2025-06-01', 'Harvested', 8.0,  'YOUR_FARM_UUID', 'YOUR_USER_UUID');
+
+-- Example: Seed tasks
+-- INSERT INTO tasks (title, description, priority, status, due_date, category, farm_id, owner_id)
+-- VALUES
+--     ('Vaccinate calves',       'Annual vaccination for all calves under 1 year',  'High',   'Pending',     '2026-03-01', 'Livestock',  'YOUR_FARM_UUID', 'YOUR_USER_UUID'),
+--     ('Fertilize maize field',  'Apply NPK 2:3:2 at 250kg/ha',                    'Medium', 'Pending',     '2026-03-15', 'Crops',      'YOUR_FARM_UUID', 'YOUR_USER_UUID'),
+--     ('Service tractor',       'Annual service due - John Deere 5055E',           'Medium', 'In Progress', '2026-02-28', 'Equipment',  'YOUR_FARM_UUID', 'YOUR_USER_UUID'),
+--     ('Pay feed supplier',     'Monthly feed delivery invoice R12,500',           'High',   'Pending',     '2026-02-25', 'Finance',    'YOUR_FARM_UUID', 'YOUR_USER_UUID');

@@ -1,19 +1,35 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { offlineService } from '../services/offline_service';
-import { useAuth } from '../features/auth/context/AuthContext';
-import { Analytics } from '../lib/tracking';
+import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/features/auth/context/AuthContext';
 
+// Internal DB row type (snake_case from Supabase)
+interface AnimalRow {
+    id: string;
+    tag_number: string;
+    type: 'Cow' | 'Goat' | 'Sheep' | 'Pig' | 'Other';
+    sex: 'Male' | 'Female';
+    health_status: 'Healthy' | 'Sick' | 'Under Observation';
+    vaccination_status: 'Up to Date' | 'Due' | 'Not Vaccinated';
+    notes?: string;
+    image_url?: string;
+    farm_id: string;
+    owner_id: string;
+    created_at: string;
+    updated_at: string;
+}
+
+// Public type used by UI components (camelCase, backwards-compatible)
 export interface Animal {
-    id: number;
+    id: string;
     tagNumber: string;
     type: 'Cow' | 'Goat' | 'Sheep' | 'Pig' | 'Other';
     sex: 'Male' | 'Female';
     healthStatus: 'Healthy' | 'Sick' | 'Under Observation';
     vaccinationStatus: 'Up to Date' | 'Due' | 'Not Vaccinated';
     notes?: string;
-    imageUrl?: string; // Added for native photo support
-    farm_id?: number; // Added for backend compatibility
+    imageUrl?: string;
+    farm_id: string;
 }
 
 export interface LivestockSummary {
@@ -23,9 +39,10 @@ export interface LivestockSummary {
 
 interface AnimalContextType {
     animals: Animal[];
-    addAnimal: (animal: Omit<Animal, 'id'>) => void;
-    updateAnimal: (id: number, updated: Animal) => void;
-    deleteAnimal: (id: number) => void;
+    isLoading: boolean;
+    addAnimal: (animal: Omit<Animal, 'id' | 'farm_id'>) => Promise<void>;
+    updateAnimal: (id: string, updated: Animal) => Promise<void>;
+    deleteAnimal: (id: string) => Promise<void>;
     getLivestockSummary: () => LivestockSummary[];
     getTotalAnimals: () => number;
     getHealthStats: () => {
@@ -33,115 +50,164 @@ interface AnimalContextType {
         sick: number;
         underObservation: number;
     };
-    syncData: () => Promise<void>;
+    refreshAnimals: () => Promise<void>;
+}
+
+// Transform DB row (snake_case) to UI format (camelCase)
+function toAnimal(row: AnimalRow): Animal {
+    return {
+        id: row.id,
+        tagNumber: row.tag_number,
+        type: row.type,
+        sex: row.sex,
+        healthStatus: row.health_status,
+        vaccinationStatus: row.vaccination_status,
+        notes: row.notes,
+        imageUrl: row.image_url,
+        farm_id: row.farm_id,
+    };
 }
 
 const AnimalContext = createContext<AnimalContextType | undefined>(undefined);
 
 export function AnimalProvider({ children }: { children: ReactNode }) {
     const [animals, setAnimals] = useState<Animal[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [farmId, setFarmId] = useState<string | null>(null);
     const { user } = useAuth();
 
+    // Fetch user's default farm
     useEffect(() => {
-        const loadInitialData = async () => {
-            const storedAnimals = await offlineService.getData('animals');
-            if (storedAnimals && storedAnimals.length > 0) {
-                setAnimals(storedAnimals as Animal[]);
-            }
-        };
-        loadInitialData();
-        // Initial sync attempt
-        syncData();
-
-        if (user?.username) {
-            Analytics.identifyUser(user.username);
+        if (!user) {
+            setAnimals([]);
+            setFarmId(null);
+            setIsLoading(false);
+            return;
         }
 
-        // Auto-sync when connection restored
-        const handleOnline = () => {
-            console.log('Network restored. Triggering sync...');
-            syncData();
-        };
-        window.addEventListener('online', handleOnline);
+        const fetchFarm = async () => {
+            const { data, error } = await supabase
+                .from('farms')
+                .select('id')
+                .eq('owner_id', user.id)
+                .limit(1)
+                .single();
 
-        return () => window.removeEventListener('online', handleOnline);
+            if (error) {
+                console.error('Failed to fetch farm:', error);
+                toast.error('Failed to load farm data');
+                setIsLoading(false);
+                return;
+            }
+
+            setFarmId(data.id);
+        };
+
+        fetchFarm();
     }, [user]);
 
-    const addAnimal = async (animal: Omit<Animal, 'id'>) => {
-        const newAnimal: Animal = {
-            ...animal,
-            id: Date.now(),
-        };
+    // Fetch animals once we have a farm
+    const fetchAnimals = useCallback(async () => {
+        if (!farmId || !user) return;
 
-        const currentAnimals = [...animals, newAnimal];
-        setAnimals(currentAnimals);
-        await offlineService.saveData('animals', currentAnimals);
+        setIsLoading(true);
+        const { data, error } = await supabase
+            .from('animals')
+            .select('*')
+            .eq('farm_id', farmId)
+            .eq('is_deleted', false)
+            .order('created_at', { ascending: false });
 
-        await offlineService.enqueueMutation({
-            collection: 'animals',
-            type: 'ADD',
-            data: newAnimal,
-        });
+        if (error) {
+            console.error('Failed to fetch animals:', error);
+            toast.error('Failed to load animals');
+        } else {
+            setAnimals((data as AnimalRow[]).map(toAnimal));
+        }
+        setIsLoading(false);
+    }, [farmId, user]);
 
-        Analytics.trackEvent('animal_added', {
-            species: animal.type,
-            health_status: animal.healthStatus
-        });
+    useEffect(() => {
+        fetchAnimals();
+    }, [fetchAnimals]);
 
-        syncData();
-        toast.success('Animal record saved locally');
+    const addAnimal = async (animal: Omit<Animal, 'id' | 'farm_id'>) => {
+        if (!farmId || !user) {
+            toast.error('No farm found. Please try again.');
+            return;
+        }
+
+        const { data, error } = await supabase
+            .from('animals')
+            .insert({
+                tag_number: animal.tagNumber,
+                type: animal.type,
+                sex: animal.sex,
+                health_status: animal.healthStatus,
+                vaccination_status: animal.vaccinationStatus,
+                notes: animal.notes || null,
+                image_url: animal.imageUrl || null,
+                farm_id: farmId,
+                owner_id: user.id,
+            })
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Failed to add animal:', error);
+            toast.error('Failed to save animal record');
+            return;
+        }
+
+        setAnimals(prev => [toAnimal(data as AnimalRow), ...prev]);
+        toast.success('Animal record saved');
     };
 
-    const updateAnimal = async (id: number, updated: Animal) => {
-        const currentAnimals = animals.map((a) => (a.id === id ? updated : a));
-        setAnimals(currentAnimals);
-        await offlineService.saveData('animals', currentAnimals);
+    const updateAnimal = async (id: string, updated: Animal) => {
+        const { error } = await supabase
+            .from('animals')
+            .update({
+                tag_number: updated.tagNumber,
+                type: updated.type,
+                sex: updated.sex,
+                health_status: updated.healthStatus,
+                vaccination_status: updated.vaccinationStatus,
+                notes: updated.notes || null,
+                image_url: updated.imageUrl || null,
+            })
+            .eq('id', id);
 
-        await offlineService.enqueueMutation({
-            collection: 'animals',
-            type: 'UPDATE',
-            data: updated,
-        });
+        if (error) {
+            console.error('Failed to update animal:', error);
+            toast.error('Failed to update animal record');
+            return;
+        }
 
-        Analytics.trackEvent('animal_updated', {
-            species: updated.type, // Changed from animal.species to updated.type as per Animal interface
-            health_status: updated.healthStatus
-        });
-
-        syncData();
-        toast.success('Update saved locally');
+        setAnimals(prev => prev.map(a => (a.id === id ? { ...a, ...updated } : a)));
+        toast.success('Animal record updated');
     };
 
-    const deleteAnimal = async (id: number) => {
-        const animal = animals.find((a) => a.id === id);
-        const updatedAnimals = animals.filter((a) => a.id !== id);
-        setAnimals(updatedAnimals);
-        await offlineService.saveData('animals', updatedAnimals);
+    const deleteAnimal = async (id: string) => {
+        // Soft delete
+        const { error } = await supabase
+            .from('animals')
+            .update({ is_deleted: true, deleted_at: new Date().toISOString() })
+            .eq('id', id);
 
-        await offlineService.enqueueMutation({
-            type: 'DELETE',
-            collection: 'animals',
-            data: { id }
-        });
+        if (error) {
+            console.error('Failed to delete animal:', error);
+            toast.error('Failed to remove animal record');
+            return;
+        }
 
-        toast.success('Removal queued', {
-            description: animal ? `${animal.tagNumber} will be removed from server` : 'Animal removal pending sync',
-        });
-
-        syncData();
-    };
-
-    const syncData = async () => {
-        // In a real app, we'd get a proper JWT from AuthContext
-        // For now, we use the username as a placeholder token if needed
-        const token = user?.username;
-        await offlineService.attemptSync(token);
+        setAnimals(prev => prev.filter(a => a.id !== id));
+        toast.success('Animal record removed');
     };
 
     const getLivestockSummary = (): LivestockSummary[] => {
         return animals.reduce(
             (acc, animal) => {
-                const existing = acc.find((item) => item.type === animal.type);
+                const existing = acc.find(item => item.type === animal.type);
                 if (existing) {
                     existing.count += 1;
                 } else {
@@ -153,9 +219,7 @@ export function AnimalProvider({ children }: { children: ReactNode }) {
         );
     };
 
-    const getTotalAnimals = (): number => {
-        return animals.length;
-    };
+    const getTotalAnimals = (): number => animals.length;
 
     const getHealthStats = () => {
         return animals.reduce(
@@ -173,13 +237,14 @@ export function AnimalProvider({ children }: { children: ReactNode }) {
         <AnimalContext.Provider
             value={{
                 animals,
+                isLoading,
                 addAnimal,
                 updateAnimal,
                 deleteAnimal,
                 getLivestockSummary,
                 getTotalAnimals,
                 getHealthStats,
-                syncData,
+                refreshAnimals: fetchAnimals,
             }}
         >
             {children}

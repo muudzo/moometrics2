@@ -1,93 +1,146 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { z } from 'zod';
-import { Preferences } from '@capacitor/preferences';
-
-// Define Zod schema for User
-const UserSchema = z.object({
-  username: z.string().min(1),
-  name: z.string(),
-});
-
-type User = z.infer<typeof UserSchema>;
+import { Session, User, AuthError } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabaseClient';
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string) => Promise<void>;
-  logout: () => void;
+  session: Session | null;
   isAuthenticated: boolean;
-  error: string | null;
   isLoading: boolean;
+  error: string | null;
+  signUp: (email: string, password: string, fullName?: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  clearError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'moometrics_user';
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadUser = async () => {
+    // Get initial session
+    const initSession = async () => {
       try {
-        const { value } = await Preferences.get({ key: STORAGE_KEY });
-        if (value) {
-          const parsed = JSON.parse(value);
-          const result = UserSchema.safeParse(parsed);
-          if (result.success) {
-            setUser(result.data);
-          } else {
-            console.warn('Corrupted user data found in storage, clearing.');
-            await Preferences.remove({ key: STORAGE_KEY });
-          }
-        }
-      } catch (e) {
-        console.error('Failed to load user from storage', e);
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+      } catch (err) {
+        console.error('Failed to get session:', err);
       } finally {
         setIsLoading(false);
       }
     };
-    loadUser();
+
+    initSession();
+
+    // Listen for auth state changes (login, logout, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, newSession) => {
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+        setIsLoading(false);
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const login = async (username: string) => {
-    setError(null);
-    try {
-      if (!username || username.trim() === '') {
-        throw new Error('Username cannot be empty');
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const newUser = { username, name: username };
-
-      const result = UserSchema.safeParse(newUser);
-      if (!result.success) {
-        throw new Error('Invalid user data generated');
-      }
-
-      setUser(result.data);
-      await Preferences.set({
-        key: STORAGE_KEY,
-        value: JSON.stringify(result.data)
-      });
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Login failed';
-      setError(errorMessage);
-      console.error('Login error:', err);
-      setUser(null);
-      await Preferences.remove({ key: STORAGE_KEY });
+  const formatAuthError = (err: AuthError): string => {
+    switch (err.message) {
+      case 'Invalid login credentials':
+        return 'Incorrect email or password. Please try again.';
+      case 'Email not confirmed':
+        return 'Please check your email and confirm your account before signing in.';
+      case 'User already registered':
+        return 'An account with this email already exists. Please sign in instead.';
+      default:
+        return err.message;
     }
   };
 
-  const logout = async () => {
-    setUser(null);
+  const signUp = async (email: string, password: string, fullName?: string) => {
     setError(null);
-    await Preferences.remove({ key: STORAGE_KEY });
+    setIsLoading(true);
+
+    try {
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName || email.split('@')[0],
+          },
+        },
+      });
+
+      if (signUpError) {
+        setError(formatAuthError(signUpError));
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
+      console.error('Sign up error:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  const signIn = async (email: string, password: string) => {
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        setError(formatAuthError(signInError));
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
+      console.error('Sign in error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const signOut = async () => {
+    setError(null);
+    try {
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) {
+        setError(formatAuthError(signOutError));
+      }
+    } catch (err) {
+      setError('Failed to sign out. Please try again.');
+      console.error('Sign out error:', err);
+    }
+  };
+
+  const clearError = () => setError(null);
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, error, isLoading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        session,
+        isAuthenticated: !!session,
+        isLoading,
+        error,
+        signUp,
+        signIn,
+        signOut,
+        clearError,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
